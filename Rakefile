@@ -1,5 +1,6 @@
 require 'rubygems'
 require 'bundler'
+require "rake/clean"
 begin
   Bundler.setup(:default, :development)
 rescue Bundler::BundlerError => e
@@ -48,3 +49,9 @@ Rake::RDocTask.new do |rdoc|
   rdoc.rdoc_files.include('README*')
   rdoc.rdoc_files.include('lib/**/*.rb')
 end
+
+
+CLEAN.include("ext/mpi/*.o")
+CLEAN.include("ext/mpi/mkmf.log")
+CLOBBER.include("ext/mpi/mpi.so")
+CLOBBER.include("ext/mpi/Makefile")
