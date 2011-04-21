@@ -17,19 +17,39 @@ describe "Mpi" do
 
   it "should be able to send and receive String" do
     world = MPI::Comm::WORLD
-    message = "Hello"
-    world.Send(message, 0, 0)
-    str = " "*(message.length)
-    world.Recv(str, 0, 0)
-    str.should eql(message)
+    message = "Hello from #{world.rank}"
+    tag = 0
+    world.Send(message, 0, tag)
+    if world.rank == 0
+      world.size.times do |i|
+        str = " "*30
+        err, status = world.Recv(str, i, tag)
+        err.should eql(0)
+        status.source.should eql(0)
+        status.tag.should eql(tag)
+        status.error.should eq(0)
+        str.should match(/\AHello from #{i}+/)
+      end
+    end
   end
 
   it "should be able to send and receive NArray" do
     world = MPI::Comm::WORLD
-    ary0 = NArray[1,2,3]
-    world.Send(ary0, 0, 0)
-    ary1 = NArray.new(ary0.typecode, ary0.total)
-    world.Recv(ary1, 0, 0)
-    ary1.should == ary0
+    tag = 0
+    [NArray[1,2,3], NArray[3.0,2.0,1.0]].each do |ary0|
+      ary0 = NArray[1,2,3]
+      world.Send(ary0, 0, tag)
+      if world.rank == 0
+        world.size.times do |i|
+          ary1 = NArray.new(ary0.typecode, ary0.total)
+          err, status = world.Recv(ary1, i, tag)
+          err.should eql(0)
+          status.source.should eql(0)
+          status.tag.should eql(tag)
+          status.error.should eq(0)
+          ary1.should == ary0
+        end
+      end
+    end
   end
 end

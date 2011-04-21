@@ -47,6 +47,7 @@
 
 static VALUE mMPI;
 static VALUE cComm;
+static VALUE cStatus;
 
 static bool _initialized = false;
 static bool _finalized = false;
@@ -166,7 +167,7 @@ rb_comm_recv(VALUE self, VALUE rb_obj, VALUE rb_source, VALUE rb_tag)
   void* buffer;
   int len, source, tag;
   MPI_Datatype type;
-  MPI_Status status;
+  MPI_Status *status;
   struct _Comm *comm;
   int ret;
 
@@ -175,9 +176,33 @@ rb_comm_recv(VALUE self, VALUE rb_obj, VALUE rb_source, VALUE rb_tag)
   tag = NUM2INT(rb_tag);
 
   Data_Get_Struct(self, struct _Comm, comm);
-  ret = MPI_Recv(buffer, len, type, source, tag, comm->comm, &status);
+  status = ALLOC(MPI_Status);
+  ret = MPI_Recv(buffer, len, type, source, tag, comm->comm, status);
 
-  return INT2NUM(ret);
+  return rb_ary_new3(2, INT2NUM(ret), Data_Wrap_Struct(cStatus, 0, -1, status));
+}
+
+// MPI::Status
+static VALUE
+rb_status_source(VALUE self)
+{
+  MPI_Status *status;
+  Data_Get_Struct(self, MPI_Status, status);
+  return INT2NUM(status->MPI_SOURCE);
+}
+static VALUE
+rb_status_tag(VALUE self)
+{
+  MPI_Status *status;
+  Data_Get_Struct(self, MPI_Status, status);
+  return INT2NUM(status->MPI_TAG);
+}
+static VALUE
+rb_status_error(VALUE self)
+{
+  MPI_Status *status;
+  Data_Get_Struct(self, MPI_Status, status);
+  return INT2NUM(status->MPI_ERROR);
 }
 
 
@@ -207,4 +232,10 @@ void Init_mpi()
   rb_define_method(cComm, "size", rb_comm_size, 0);
   rb_define_method(cComm, "Send", rb_comm_send, 3);
   rb_define_method(cComm, "Recv", rb_comm_recv, 3);
+
+  // MPI::Status
+  cStatus = rb_define_class_under(mMPI, "Status", rb_cObject);
+  rb_define_method(cStatus, "source", rb_status_source, 0);
+  rb_define_method(cStatus, "tag", rb_status_tag, 0);
+  rb_define_method(cStatus, "error", rb_status_error, 0);
 }
