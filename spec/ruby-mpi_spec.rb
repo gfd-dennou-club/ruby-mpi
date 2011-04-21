@@ -125,6 +125,20 @@ describe "Mpi" do
     recvbuf.should eql(rank.to_s*bufsize)
   end
 
+  it "should change data between each others" do
+    world = MPI::Comm::WORLD
+    rank = world.rank
+    size = world.size
+    bufsize = 2
+    sendbuf = rank.to_s*bufsize*size
+    recvbuf = "?"*bufsize*size
+    world.Alltoall(sendbuf, recvbuf)
+    str = ""
+    size.times{|i| str << i.to_s*bufsize}
+    recvbuf.should eql(str)
+  end
+
+
 
 
   it "shoud raise exeption" do
