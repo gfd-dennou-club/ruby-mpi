@@ -24,10 +24,10 @@ describe "Mpi" do
       world.size.times do |i|
         str = " "*30
         err, status = world.Recv(str, i, tag)
-        err.should eql(0)
+        err.should eql(MPI::SUCCESS)
         status.source.should eql(0)
         status.tag.should eql(tag)
-        status.error.should eq(0)
+        status.error.should eq(MPI::SUCCESS)
         str.should match(/\AHello from #{i}+/)
       end
     end
@@ -43,10 +43,10 @@ describe "Mpi" do
         world.size.times do |i|
           ary1 = NArray.new(ary0.typecode, ary0.total)
           err, status = world.Recv(ary1, i, tag)
-          err.should eql(0)
+          err.should eql(MPI::SUCCESS)
           status.source.should eql(0)
           status.tag.should eql(tag)
-          status.error.should eq(0)
+          status.error.should eq(MPI::SUCCESS)
           ary1.should == ary0
         end
       end

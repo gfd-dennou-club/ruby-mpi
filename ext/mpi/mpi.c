@@ -219,6 +219,7 @@ void Init_mpi()
   rb_define_module_function(mMPI, "Finalize", rb_m_finalize, -1);
   rb_define_const(mMPI, "VERSION", INT2NUM(MPI_VERSION));
   rb_define_const(mMPI, "SUBVERSION", INT2NUM(MPI_SUBVERSION));
+  rb_define_const(mMPI, "SUCCESS", INT2NUM(MPI_SUCCESS));
 
   // MPI::Comm
   cComm = rb_define_class_under(mMPI, "Comm", rb_cObject);
