@@ -371,6 +371,20 @@ rb_comm_allgather(VALUE self, VALUE rb_sendbuf, VALUE rb_recvbuf)
   return Qnil;
 }
 static VALUE
+rb_comm_bcast(VALUE self, VALUE rb_buffer, VALUE rb_root)
+{
+  void *buffer;
+  int count;
+  MPI_Datatype type;
+  int root;
+  struct _Comm *comm;
+  OBJ2C(rb_buffer, count, buffer, type);
+  root = NUM2INT(rb_root);
+  Data_Get_Struct(self, struct _Comm, comm);
+  check_error(MPI_Bcast(buffer, count, type, root, comm->comm));
+  return Qnil;
+}
+static VALUE
 rb_comm_scatter(VALUE self, VALUE rb_sendbuf, VALUE rb_recvbuf, VALUE rb_root)
 {
   void *sendbuf = NULL, *recvbuf;
@@ -386,7 +400,7 @@ rb_comm_scatter(VALUE self, VALUE rb_sendbuf, VALUE rb_recvbuf, VALUE rb_root)
   if (rank == root) {
     OBJ2C(rb_sendbuf, sendcount, sendbuf, sendtype);
     if (sendcount > recvcount*size)
-      rb_raise(rb_eArgError, "sendbuf is too large");
+      rb_raise(rb_eArgError, "recvbuf is too small");
     sendcount = recvcount;
   }
   check_error(MPI_Scatter(sendbuf, sendcount, sendtype, recvbuf, recvcount, recvtype, root, comm->comm));
@@ -556,6 +570,7 @@ void Init_mpi()
   rb_define_method(cComm, "Irecv", rb_comm_irecv, 3);
   rb_define_method(cComm, "Gather", rb_comm_gather, 3);
   rb_define_method(cComm, "Allgather", rb_comm_allgather, 2);
+  rb_define_method(cComm, "Bcast", rb_comm_bcast, 2);
   rb_define_method(cComm, "Scatter", rb_comm_scatter, 3);
   rb_define_method(cComm, "Alltoall", rb_comm_alltoall, 2);
   rb_define_method(cComm, "Reduce", rb_comm_reduce, 4);

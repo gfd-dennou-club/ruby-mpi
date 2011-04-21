@@ -108,6 +108,20 @@ describe "MPI" do
     recvbuf.should eql(str)
   end
 
+  it "should broad cast data (bcast)" do
+    world = MPI::Comm::WORLD
+    rank = world.rank
+    root = 0
+    bufsize = 2
+    if rank == root
+      buffer = rank.to_s*bufsize
+    else
+      buffer = " "*bufsize
+    end
+    world.Bcast(buffer, root)
+    buffer.should eql(root.to_s*bufsize)
+  end
+
   it "should scatter data" do
     world = MPI::Comm::WORLD
     rank = world.rank
