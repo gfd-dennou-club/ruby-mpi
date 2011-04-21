@@ -6,11 +6,12 @@
 #include "mpi.h"
 
 
-#define OBJ2C(rb_obj, len, buffer, type) \
+#define OBJ2C(rb_obj, len, buffer, typ) \
+{\
   if (TYPE(rb_obj) == T_STRING) {\
     len = RSTRING_LEN(rb_obj);\
     buffer = (void*)StringValuePtr(rb_obj);\
-    type = MPI_CHAR;\
+    typ = MPI_CHAR;\
   } else if (IsNArray(rb_obj)) {		\
     struct NARRAY *a;\
     GetNArray(rb_obj, a);\
@@ -18,32 +19,33 @@
     len = a->total;\
     switch (a->type) {\
     case NA_BYTE:\
-      type = MPI_BYTE;\
+      typ = MPI_BYTE;\
       break;\
     case NA_SINT:\
-      type = MPI_SHORT;\
+      typ = MPI_SHORT;\
       break;\
     case NA_LINT:\
-      type = MPI_LONG;\
+      typ = MPI_LONG;\
       break;\
     case NA_SFLOAT:\
-      type = MPI_FLOAT;\
+      typ = MPI_FLOAT;\
       break;\
     case NA_DFLOAT:\
-      type = MPI_DOUBLE;\
+      typ = MPI_DOUBLE;\
       break;\
     case NA_SCOMPLEX:\
-      type = MPI_2COMPLEX;\
+      typ = MPI_2COMPLEX;\
       break;\
     case NA_DCOMPLEX:\
-      type = MPI_2DOUBLE_COMPLEX;\
+      typ = MPI_2DOUBLE_COMPLEX;\
       break;\
     default:\
       rb_raise(rb_eArgError, "narray type is invalid");\
     }\
   } else {\
     rb_raise(rb_eArgError, "Only String and NArray are supported");\
-  }
+  }\
+}
 
 static VALUE mMPI;
 static VALUE cComm, cRequest, cErrhandler, cStatus;
@@ -309,6 +311,28 @@ rb_comm_irecv(VALUE self, VALUE rb_obj, VALUE rb_source, VALUE rb_tag)
   return rb_request;
 }
 static VALUE
+rb_comm_gather(VALUE self, VALUE rb_sendbuf, VALUE rb_recvbuf, VALUE rb_root)
+{
+  void *sendbuf, *recvbuf = NULL;
+  int sendcount, recvcount = 0;
+  MPI_Datatype sendtype, recvtype = NULL;
+  int root, rank, size;
+  struct _Comm *comm;
+  OBJ2C(rb_sendbuf, sendcount, sendbuf, sendtype);
+  root = NUM2INT(rb_root);
+  Data_Get_Struct(self, struct _Comm, comm);
+  check_error(MPI_Comm_rank(comm->comm, &rank));
+  check_error(MPI_Comm_size(comm->comm, &size));
+  if (rank == root) {
+    OBJ2C(rb_recvbuf, recvcount, recvbuf, recvtype);
+    if (recvcount < sendcount*size)
+      rb_raise(rb_eArgError, "recvbuf is too small");
+    recvcount = sendcount;
+  }
+  check_error(MPI_Gather(sendbuf, sendcount, sendtype, recvbuf, recvcount, recvtype, root, comm->comm));
+  return Qnil;
+}
+static VALUE
 rb_comm_get_Errhandler(VALUE self)
 {
   struct _Comm *comm;
@@ -403,6 +427,7 @@ void Init_mpi()
   rb_define_method(cComm, "Isend", rb_comm_isend, 3);
   rb_define_method(cComm, "Recv", rb_comm_recv, 3);
   rb_define_method(cComm, "Irecv", rb_comm_irecv, 3);
+  rb_define_method(cComm, "Gather", rb_comm_gather, 3);
   rb_define_method(cComm, "Errhandler", rb_comm_get_Errhandler, 0);
   rb_define_method(cComm, "Errhandler=", rb_comm_set_Errhandler, 1);
 
