@@ -95,6 +95,23 @@ describe "Mpi" do
     end
   end
 
+  it "should scatter data" do
+    world = MPI::Comm::WORLD
+    rank = world.rank
+    size = world.size
+    root = 0
+    bufsize = 2
+    if rank == root
+      sendbuf = ""
+      size.times{|i| sendbuf << i.to_s*bufsize}
+    else
+      sendbuf = nil
+    end
+    recvbuf = " "*bufsize
+    world.Scatter(sendbuf, recvbuf, root)
+    recvbuf.should eql(rank.to_s*bufsize)
+  end
+
 
 
   it "shoud raise exeption" do
