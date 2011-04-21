@@ -129,7 +129,9 @@ check_error(int error)
     CAE_ERR(UNSUPPORTED_OPERATION);
     CAE_ERR(WIN);
     CAE_ERR(LASTCODE);
+#ifdef MPI_ERR_SYSRESOURCE
     CAE_ERR(SYSRESOURCE);
+#endif
   default:
     rb_raise(rb_eRuntimeError, "unknown error");
   }
