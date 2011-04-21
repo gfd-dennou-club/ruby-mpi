@@ -132,6 +132,12 @@ check_error(int error)
   }
 }
 
+#define DEF_CONST(st, v, const, name, klass) \
+{\
+  v = ALLOC(struct st);\
+  v->v = const;\
+  rb_define_const(klass, #name, Data_Wrap_Struct(klass, 0, -1, v));	\
+}
 
 static VALUE
 rb_m_init(int argc, VALUE *argv, VALUE self)
@@ -172,20 +178,14 @@ rb_m_init(int argc, VALUE *argv, VALUE self)
   MPI_Init(&cargc, &cargv);
 
   // define MPI::Comm::WORLD
-  struct _Comm *world;
-  world = ALLOC(struct _Comm);
-  world->comm = MPI_COMM_WORLD;
-  rb_define_const(cComm, "WORLD", Data_Wrap_Struct(cComm, 0, -1, world));
+  struct _Comm *comm;
+  DEF_CONST(_Comm, comm, MPI_COMM_WORLD, WORLD, cComm);
   MPI_Errhandler_set(MPI_COMM_WORLD, MPI_ERRORS_RETURN);
 
   // define MPI::Errhandler::ERRORS_ARE_FATAL, ERRORS_RETURN
   struct _Errhandler *errhandler;
-  errhandler = ALLOC(struct _Errhandler);
-  errhandler->errhandler = MPI_ERRORS_ARE_FATAL;
-  rb_define_const(cErrhandler, "ERRORS_ARE_FATAL", Data_Wrap_Struct(cErrhandler, 0, -1, errhandler));
-  errhandler = ALLOC(struct _Errhandler);
-  errhandler->errhandler = MPI_ERRORS_RETURN;
-  rb_define_const(cErrhandler, "ERRORS_RETURN", Data_Wrap_Struct(cErrhandler, 0, -1, errhandler));
+  DEF_CONST(_Errhandler, errhandler, MPI_ERRORS_ARE_FATAL, ERRORS_ARE_FATAL, cErrhandler);
+  DEF_CONST(_Errhandler, errhandler, MPI_ERRORS_RETURN, ERRORS_RETURN, cErrhandler);
 
   return self;
 }
