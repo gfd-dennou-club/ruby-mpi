@@ -95,7 +95,7 @@ describe "Mpi" do
     end
   end
 
-  it "should gather data to all processes" do
+  it "should gather data to all processes (allgather)" do
     world = MPI::Comm::WORLD
     rank = world.rank
     size = world.size
@@ -125,7 +125,7 @@ describe "Mpi" do
     recvbuf.should eql(rank.to_s*bufsize)
   end
 
-  it "should change data between each others" do
+  it "should change data between each others (alltoall)" do
     world = MPI::Comm::WORLD
     rank = world.rank
     size = world.size
