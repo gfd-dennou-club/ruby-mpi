@@ -144,6 +144,14 @@ check_error(int error)
   rb_define_const(klass, #name, Data_Wrap_Struct(klass, 0, -1, v));	\
 }
 
+static void
+_finalize()
+{
+  if(_initialized && !_finalized) {
+    _finalized = true;
+    check_error(MPI_Finalize());
+  }
+}
 static VALUE
 rb_m_init(int argc, VALUE *argv, VALUE self)
 {
@@ -152,11 +160,6 @@ rb_m_init(int argc, VALUE *argv, VALUE self)
   char ** cargv;
   VALUE progname;
   int i;
-
-  if (_initialized)
-    return self;
-  else
-    _initialized = true;
 
   rb_scan_args(argc, argv, "01", &argary);
 
@@ -180,7 +183,14 @@ rb_m_init(int argc, VALUE *argv, VALUE self)
   }
   cargc++;
 
-  MPI_Init(&cargc, &cargv);
+  check_error(MPI_Init(&cargc, &cargv));
+  if (_initialized)
+    return self;
+  else
+    _initialized = true;
+  atexit(_finalize);
+
+
 
   // define MPI::Comm::WORLD
   struct _Comm *comm;
@@ -211,14 +221,6 @@ rb_m_init(int argc, VALUE *argv, VALUE self)
   return self;
 }
 
-static void
-_finalize()
-{
-  if(_initialized && !_finalized) {
-    _finalized = true;
-    check_error(MPI_Finalize());
-  }
-}
 static VALUE
 rb_m_finalize(VALUE self)
 {
@@ -549,8 +551,6 @@ void Init_mpi()
 {
 
   rb_require("narray");
-
-  atexit(_finalize);
 
   // MPI
   mMPI = rb_define_module("MPI");
