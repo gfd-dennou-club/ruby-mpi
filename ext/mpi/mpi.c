@@ -52,7 +52,7 @@ static bool _initialized = false;
 static bool _finalized = false;
 
 
-VALUE
+static VALUE
 rb_m_init(int argc, VALUE *argv, VALUE self)
 {
   VALUE argary;
@@ -101,7 +101,7 @@ _finalize()
     MPI_Finalize();
   }
 }
-VALUE
+static VALUE
 rb_m_finalize(VALUE self)
 {
   _finalize();
@@ -160,7 +160,7 @@ rb_comm_send(VALUE self, VALUE rb_obj, VALUE rb_dest, VALUE rb_tag)
 
   return INT2NUM(ret);
 }
-VALUE
+static VALUE
 rb_comm_recv(VALUE self, VALUE rb_obj, VALUE rb_source, VALUE rb_tag)
 {
   void* buffer;
