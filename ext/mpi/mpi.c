@@ -522,6 +522,13 @@ rb_comm_set_Errhandler(VALUE self, VALUE rb_errhandler)
   MPI_Comm_set_errhandler(comm->comm, errhandler->errhandler);
   return self;
 }
+static VALUE
+rb_comm_barrier(VALUE self)
+{
+  struct _Comm *comm;
+  Data_Get_Struct(self, struct _Comm, comm);
+  check_error(MPI_Barrier(comm->comm));
+}
 
 // MPI::Request
 static VALUE
@@ -603,6 +610,7 @@ void Init_mpi()
   rb_define_method(cComm, "Allreduce", rb_comm_allreduce, 3);
   rb_define_method(cComm, "Errhandler", rb_comm_get_Errhandler, 0);
   rb_define_method(cComm, "Errhandler=", rb_comm_set_Errhandler, 1);
+  rb_define_method(cComm, "Barrier", rb_comm_barrier, 0);
 
   // MPI::Request
   cRequest = rb_define_class_under(mMPI, "Request", rb_cObject);

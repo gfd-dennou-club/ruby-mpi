@@ -200,7 +200,10 @@ describe "MPI" do
     recvbuf.should == ary
   end
 
-
+  it "should not raise exception in calling barrier" do
+    world = MPI::Comm::WORLD
+    world.Barrier
+  end
 
 
   it "shoud raise exeption" do
