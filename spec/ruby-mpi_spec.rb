@@ -7,6 +7,14 @@ describe "Mpi" do
   after(:all) do
     MPI.Finalize()
   end
+
+  it "should be able to ge version" do
+    MPI.constants.should include("VERSION")
+    MPI.constants.should include("SUBVERSION")
+    MPI::VERSION.class.should eql(Fixnum)
+    MPI::SUBVERSION.class.should eql(Fixnum)
+  end
+
   it "should have Comm:WORLD" do
     MPI::Comm.constants.should include("WORLD")
     world = MPI::Comm::WORLD
