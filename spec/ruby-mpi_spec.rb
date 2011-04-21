@@ -95,6 +95,19 @@ describe "Mpi" do
     end
   end
 
+  it "should gather data to all processes" do
+    world = MPI::Comm::WORLD
+    rank = world.rank
+    size = world.size
+    bufsize = 2
+    sendbuf = rank.to_s*bufsize
+    recvbuf = "?"*bufsize*size
+    world.Allgather(sendbuf, recvbuf)
+    str = ""
+    size.times{|i| str << i.to_s*bufsize}
+    recvbuf.should eql(str)
+  end
+
   it "should scatter data" do
     world = MPI::Comm::WORLD
     rank = world.rank

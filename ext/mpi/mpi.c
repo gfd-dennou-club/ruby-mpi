@@ -333,6 +333,25 @@ rb_comm_gather(VALUE self, VALUE rb_sendbuf, VALUE rb_recvbuf, VALUE rb_root)
   return Qnil;
 }
 static VALUE
+rb_comm_allgather(VALUE self, VALUE rb_sendbuf, VALUE rb_recvbuf)
+{
+  void *sendbuf, *recvbuf;
+  int sendcount, recvcount;
+  MPI_Datatype sendtype, recvtype;
+  int rank, size;
+  struct _Comm *comm;
+  OBJ2C(rb_sendbuf, sendcount, sendbuf, sendtype);
+  Data_Get_Struct(self, struct _Comm, comm);
+  check_error(MPI_Comm_rank(comm->comm, &rank));
+  check_error(MPI_Comm_size(comm->comm, &size));
+  OBJ2C(rb_recvbuf, recvcount, recvbuf, recvtype);
+  if (recvcount < sendcount*size)
+    rb_raise(rb_eArgError, "recvbuf is too small");
+  recvcount = sendcount;
+  check_error(MPI_Allgather(sendbuf, sendcount, sendtype, recvbuf, recvcount, recvtype, comm->comm));
+  return Qnil;
+}
+static VALUE
 rb_comm_scatter(VALUE self, VALUE rb_sendbuf, VALUE rb_recvbuf, VALUE rb_root)
 {
   void *sendbuf = NULL, *recvbuf;
@@ -450,6 +469,7 @@ void Init_mpi()
   rb_define_method(cComm, "Recv", rb_comm_recv, 3);
   rb_define_method(cComm, "Irecv", rb_comm_irecv, 3);
   rb_define_method(cComm, "Gather", rb_comm_gather, 3);
+  rb_define_method(cComm, "Allgather", rb_comm_allgather, 2);
   rb_define_method(cComm, "Scatter", rb_comm_scatter, 3);
   rb_define_method(cComm, "Errhandler", rb_comm_get_Errhandler, 0);
   rb_define_method(cComm, "Errhandler=", rb_comm_set_Errhandler, 1);
