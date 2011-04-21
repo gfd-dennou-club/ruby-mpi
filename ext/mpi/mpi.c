@@ -48,7 +48,7 @@
 }
 
 static VALUE mMPI;
-static VALUE cComm, cRequest, cErrhandler, cStatus;
+static VALUE cComm, cRequest, cOp, cErrhandler, cStatus;
 
 static VALUE eBUFFER, eCOUNT, eTYPE, eTAG, eCOMM, eRANK, eREQUEST, eROOT, eGROUP, eOP, eTOPOLOGY, eDIMS, eARG, eUNKNOWN, eTRUNCATE, eOTHER, eINTERN, eIN_STATUS, ePENDING, eACCESS, eAMODE, eASSERT, eBAD_FILE, eBASE, eCONVERSION, eDISP, eDUP_DATAREP, eFILE_EXISTS, eFILE_IN_USE, eFILE, eINFO_KEY, eINFO_NOKEY, eINFO_VALUE, eINFO, eIO, eKEYVAL, eLOCKTYPE, eNAME, eNO_MEM, eNOT_SAME, eNO_SPACE, eNO_SUCH_FILE, ePORT, eQUOTA, eREAD_ONLY, eRMA_CONFLICT, eRMA_SYNC, eSERVICE, eSIZE, eSPAWN, eUNSUPPORTED_DATAREP, eUNSUPPORTED_OPERATION, eWIN, eLASTCODE, eSYSRESOURCE;
 
@@ -57,6 +57,9 @@ struct _Comm {
 };
 struct _Request {
   MPI_Request request;
+};
+struct _Op {
+  MPI_Op op;
 };
 struct _Errhandler {
   MPI_Errhandler errhandler;
@@ -181,6 +184,22 @@ rb_m_init(int argc, VALUE *argv, VALUE self)
   struct _Comm *comm;
   DEF_CONST(_Comm, comm, MPI_COMM_WORLD, WORLD, cComm);
   MPI_Errhandler_set(MPI_COMM_WORLD, MPI_ERRORS_RETURN);
+
+  // define MPI::Op::???
+  struct _Op *op;
+  DEF_CONST(_Op, op, MPI_MAX, MAX, cOp);
+  DEF_CONST(_Op, op, MPI_MIN, MIN, cOp);
+  DEF_CONST(_Op, op, MPI_SUM, SUM, cOp);
+  DEF_CONST(_Op, op, MPI_PROD, PROD, cOp);
+  DEF_CONST(_Op, op, MPI_LAND, LAND, cOp);
+  DEF_CONST(_Op, op, MPI_BAND, BAND, cOp);
+  DEF_CONST(_Op, op, MPI_LOR, LOR, cOp);
+  DEF_CONST(_Op, op, MPI_BOR, BOR, cOp);
+  DEF_CONST(_Op, op, MPI_LXOR, LXOR, cOp);
+  DEF_CONST(_Op, op, MPI_BXOR, BXOR, cOp);
+  DEF_CONST(_Op, op, MPI_MAXLOC, MAXLOC, cOp);
+  DEF_CONST(_Op, op, MPI_MINLOC, MINLOC, cOp);
+  DEF_CONST(_Op, op, MPI_REPLACE, REPLACE, cOp);
 
   // define MPI::Errhandler::ERRORS_ARE_FATAL, ERRORS_RETURN
   struct _Errhandler *errhandler;
@@ -394,6 +413,31 @@ rb_comm_alltoall(VALUE self, VALUE rb_sendbuf, VALUE rb_recvbuf)
   return Qnil;
 }
 static VALUE
+rb_comm_reduce(VALUE self, VALUE rb_sendbuf, VALUE rb_recvbuf, VALUE rb_op, VALUE rb_root)
+{
+  void *sendbuf, *recvbuf = NULL;
+  int sendcount, recvcount = 0;
+  MPI_Datatype sendtype, recvtype = NULL;
+  int root, rank, size;
+  struct _Comm *comm;
+  struct _Op *op;
+  OBJ2C(rb_sendbuf, sendcount, sendbuf, sendtype);
+  root = NUM2INT(rb_root);
+  Data_Get_Struct(self, struct _Comm, comm);
+  check_error(MPI_Comm_rank(comm->comm, &rank));
+  check_error(MPI_Comm_size(comm->comm, &size));
+  if (rank == root) {
+    OBJ2C(rb_recvbuf, recvcount, recvbuf, recvtype);
+    if (recvcount != sendcount)
+      rb_raise(rb_eArgError, "sendbuf and recvbuf has the same length");
+    if (recvtype != sendtype)
+      rb_raise(rb_eArgError, "sendbuf and recvbuf has the same type");
+  }
+  Data_Get_Struct(rb_op, struct _Op, op);
+  check_error(MPI_Reduce(sendbuf, recvbuf, sendcount, sendtype, op->op, root, comm->comm));
+  return Qnil;
+}
+static VALUE
 rb_comm_get_Errhandler(VALUE self)
 {
   struct _Comm *comm;
@@ -492,12 +536,16 @@ void Init_mpi()
   rb_define_method(cComm, "Allgather", rb_comm_allgather, 2);
   rb_define_method(cComm, "Scatter", rb_comm_scatter, 3);
   rb_define_method(cComm, "Alltoall", rb_comm_alltoall, 2);
+  rb_define_method(cComm, "Reduce", rb_comm_reduce, 4);
   rb_define_method(cComm, "Errhandler", rb_comm_get_Errhandler, 0);
   rb_define_method(cComm, "Errhandler=", rb_comm_set_Errhandler, 1);
 
   // MPI::Request
   cRequest = rb_define_class_under(mMPI, "Request", rb_cObject);
   rb_define_method(cRequest, "Wait", rb_request_wait, 0);
+
+  // MPI::Op
+  cOp = rb_define_class_under(mMPI, "Op", rb_cObject);
 
   // MPI::Errhandler
   cErrhandler = rb_define_class_under(mMPI, "Errhandler", rb_cObject);

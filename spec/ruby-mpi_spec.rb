@@ -138,6 +138,21 @@ describe "Mpi" do
     recvbuf.should eql(str)
   end
 
+  it "should reduce data" do
+    world = MPI::Comm::WORLD
+    rank = world.rank
+    size = world.size
+    root = 0
+    bufsize = 2
+    sendbuf = NArray.to_na([rank]*bufsize)
+    recvbuf = rank == root ? NArray.new(sendbuf.typecode,bufsize) : nil
+    world.Reduce(sendbuf, recvbuf, MPI::Op::SUM, root)
+    if rank == root
+      ary = NArray.new(sendbuf.typecode,bufsize).fill(size*(size-1)/2.0)
+      recvbuf.should == ary
+    end
+  end
+
 
 
 
