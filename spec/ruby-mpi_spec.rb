@@ -31,8 +31,7 @@ describe "Mpi" do
     if world.rank == 0
       world.size.times do |i|
         str = " "*30
-        err, status = world.Recv(str, i, tag)
-        err.should eql(MPI::SUCCESS)
+        status = world.Recv(str, i, tag)
         status.source.should eql(0)
         status.tag.should eql(tag)
         status.error.should eq(MPI::SUCCESS)
@@ -50,8 +49,7 @@ describe "Mpi" do
       if world.rank == 0
         world.size.times do |i|
           ary1 = NArray.new(ary0.typecode, ary0.total)
-          err, status = world.Recv(ary1, i, tag)
-          err.should eql(MPI::SUCCESS)
+          status = world.Recv(ary1, i, tag)
           status.source.should eql(0)
           status.tag.should eql(tag)
           status.error.should eq(MPI::SUCCESS)
@@ -60,4 +58,12 @@ describe "Mpi" do
       end
     end
   end
+
+  it "shoud be raise exeption" do
+    world = MPI::Comm::WORLD
+    lambda{ world.Send("", -1, 0) }.should raise_error(MPI::ERR::RANK)
+    lambda{ world.Send("", world.size+1, 0) }.should raise_error(MPI::ERR::RANK)
+    world.Errhandler.should eql(MPI::Errhandler::ERRORS_RETURN)
+  end
+
 end
