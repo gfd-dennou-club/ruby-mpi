@@ -411,16 +411,38 @@ rb_comm_scatter(VALUE self, VALUE rb_sendbuf, VALUE rb_recvbuf, VALUE rb_root)
   return Qnil;
 }
 static VALUE
+rb_comm_sendrecv(VALUE self, VALUE rb_sendbuf, VALUE rb_dest, VALUE rb_sendtag, VALUE rb_recvbuf, VALUE rb_source, VALUE rb_recvtag)
+{
+  void *sendbuf, *recvbuf;
+  int sendcount, recvcount;
+  MPI_Datatype sendtype, recvtype;
+  int dest, source;
+  int sendtag, recvtag;
+  int size;
+  struct _Comm *comm;
+  MPI_Status *status;
+  OBJ2C(rb_sendbuf, sendcount, sendbuf, sendtype);
+  Data_Get_Struct(self, struct _Comm, comm);
+  check_error(MPI_Comm_size(comm->comm, &size));
+  OBJ2C(rb_recvbuf, recvcount, recvbuf, recvtype);
+  dest = NUM2INT(rb_dest);
+  source = NUM2INT(rb_source);
+  sendtag = NUM2INT(rb_sendtag);
+  recvtag = NUM2INT(rb_recvtag);
+  status = ALLOC(MPI_Status);
+  check_error(MPI_Sendrecv(sendbuf, sendcount, sendtype, dest, sendtag, recvbuf, recvcount, recvtype, source, recvtag, comm->comm, status));
+  return Data_Wrap_Struct(cStatus, 0, -1, status);
+}
+static VALUE
 rb_comm_alltoall(VALUE self, VALUE rb_sendbuf, VALUE rb_recvbuf)
 {
   void *sendbuf, *recvbuf;
   int sendcount, recvcount;
   MPI_Datatype sendtype, recvtype;
-  int rank, size;
+  int size;
   struct _Comm *comm;
   OBJ2C(rb_sendbuf, sendcount, sendbuf, sendtype);
   Data_Get_Struct(self, struct _Comm, comm);
-  check_error(MPI_Comm_rank(comm->comm, &rank));
   check_error(MPI_Comm_size(comm->comm, &size));
   OBJ2C(rb_recvbuf, recvcount, recvbuf, recvtype);
   if (recvcount < sendcount)
@@ -559,6 +581,7 @@ void Init_mpi()
   rb_define_const(mMPI, "VERSION", INT2NUM(MPI_VERSION));
   rb_define_const(mMPI, "SUBVERSION", INT2NUM(MPI_SUBVERSION));
   rb_define_const(mMPI, "SUCCESS", INT2NUM(MPI_SUCCESS));
+  rb_define_const(mMPI, "PROC_NULL", INT2NUM(MPI_PROC_NULL));
 
   // MPI::Comm
   cComm = rb_define_class_under(mMPI, "Comm", rb_cObject);
@@ -574,6 +597,7 @@ void Init_mpi()
   rb_define_method(cComm, "Allgather", rb_comm_allgather, 2);
   rb_define_method(cComm, "Bcast", rb_comm_bcast, 2);
   rb_define_method(cComm, "Scatter", rb_comm_scatter, 3);
+  rb_define_method(cComm, "Sendrecv", rb_comm_sendrecv, 6);
   rb_define_method(cComm, "Alltoall", rb_comm_alltoall, 2);
   rb_define_method(cComm, "Reduce", rb_comm_reduce, 4);
   rb_define_method(cComm, "Allreduce", rb_comm_allreduce, 3);

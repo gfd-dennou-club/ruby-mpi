@@ -139,6 +139,27 @@ describe "MPI" do
     recvbuf.should eql(rank.to_s*bufsize)
   end
 
+  it "should send and recv data (sendrecv)" do
+    world = MPI::Comm::WORLD
+    rank = world.rank
+    size = world.size
+    dest = rank-1
+    dest = size-1 if dest < 0
+    #dest = MPI::PROC_NULL if dest < 0
+    source = rank+1
+    source = 0 if source > size-1
+    #source = MPI::PROC_NULL if source > size-1
+    sendtag = rank
+    recvtag = source
+    bufsize = 2
+    sendbuf = rank.to_s*bufsize
+    recvbuf = " "*bufsize
+    world.Sendrecv(sendbuf, dest, sendtag, recvbuf, source, recvtag);
+    if source != MPI::PROC_NULL
+      recvbuf.should  eql(source.to_s*bufsize)
+    end
+  end
+
   it "should change data between each others (alltoall)" do
     world = MPI::Comm::WORLD
     rank = world.rank
