@@ -59,6 +59,28 @@ describe "Mpi" do
     end
   end
 
+  it "should be able to send and receive without blocking" do
+    world = MPI::Comm::WORLD
+    message = "Hello from #{world.rank}"
+    tag = 0
+    request = world.Isend(message, 0, tag)
+    status = request.Wait
+    status.source.should eql(0)
+    status.tag.should eql(tag)
+    if world.rank == 0
+      world.size.times do |i|
+        str = " "*30
+        request = world.Irecv(str, i, tag)
+        status = request.Wait
+        status.source.should eql(0)
+        status.tag.should eql(tag)
+        str.should match(/\AHello from #{i}+/)
+      end
+    end
+  end
+
+
+
   it "shoud be raise exeption" do
     world = MPI::Comm::WORLD
     lambda{ world.Send("", -1, 0) }.should raise_error(MPI::ERR::RANK)

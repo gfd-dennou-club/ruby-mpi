@@ -46,12 +46,15 @@
   }
 
 static VALUE mMPI;
-static VALUE cComm, cErrhandler, cStatus;
+static VALUE cComm, cRequest, cErrhandler, cStatus;
 
 static VALUE eBUFFER, eCOUNT, eTYPE, eTAG, eCOMM, eRANK, eREQUEST, eROOT, eGROUP, eOP, eTOPOLOGY, eDIMS, eARG, eUNKNOWN, eTRUNCATE, eOTHER, eINTERN, eIN_STATUS, ePENDING, eACCESS, eAMODE, eASSERT, eBAD_FILE, eBASE, eCONVERSION, eDISP, eDUP_DATAREP, eFILE_EXISTS, eFILE_IN_USE, eFILE, eINFO_KEY, eINFO_NOKEY, eINFO_VALUE, eINFO, eIO, eKEYVAL, eLOCKTYPE, eNAME, eNO_MEM, eNOT_SAME, eNO_SPACE, eNO_SUCH_FILE, ePORT, eQUOTA, eREAD_ONLY, eRMA_CONFLICT, eRMA_SYNC, eSERVICE, eSIZE, eSPAWN, eUNSUPPORTED_DATAREP, eUNSUPPORTED_OPERATION, eWIN, eLASTCODE, eSYSRESOURCE;
 
 struct _Comm {
   MPI_Comm comm;
+};
+struct _Request {
+  MPI_Request request;
 };
 struct _Errhandler {
   MPI_Errhandler errhandler;
@@ -249,6 +252,25 @@ rb_comm_send(VALUE self, VALUE rb_obj, VALUE rb_dest, VALUE rb_tag)
   return Qnil;
 }
 static VALUE
+rb_comm_isend(VALUE self, VALUE rb_obj, VALUE rb_dest, VALUE rb_tag)
+{
+  void* buffer;
+  int len, dest, tag;
+  MPI_Datatype type;
+  struct _Comm *comm;
+  struct _Request *request;
+  VALUE rb_request;
+
+  OBJ2C(rb_obj, len, buffer, type);
+  dest = NUM2INT(rb_dest);
+  tag = NUM2INT(rb_tag);
+  Data_Get_Struct(self, struct _Comm, comm);
+  rb_request = Data_Make_Struct(cRequest, struct _Request, 0, -1, request);
+  check_error(MPI_Isend(buffer, len, type, dest, tag, comm->comm, &(request->request)));
+
+  return rb_request;
+}
+static VALUE
 rb_comm_recv(VALUE self, VALUE rb_obj, VALUE rb_source, VALUE rb_tag)
 {
   void* buffer;
@@ -266,6 +288,25 @@ rb_comm_recv(VALUE self, VALUE rb_obj, VALUE rb_source, VALUE rb_tag)
   check_error(MPI_Recv(buffer, len, type, source, tag, comm->comm, status));
 
   return Data_Wrap_Struct(cStatus, 0, -1, status);
+}
+static VALUE
+rb_comm_irecv(VALUE self, VALUE rb_obj, VALUE rb_source, VALUE rb_tag)
+{
+  void* buffer;
+  int len, source, tag;
+  MPI_Datatype type;
+  struct _Comm *comm;
+  struct _Request *request;
+  VALUE rb_request;
+
+  OBJ2C(rb_obj, len, buffer, type);
+  source = NUM2INT(rb_source);
+  tag = NUM2INT(rb_tag);
+  Data_Get_Struct(self, struct _Comm, comm);
+  rb_request = Data_Make_Struct(cRequest, struct _Request, 0, -1, request);
+  check_error(MPI_Irecv(buffer, len, type, source, tag, comm->comm, &(request->request)));
+
+  return rb_request;
 }
 static VALUE
 rb_comm_get_Errhandler(VALUE self)
@@ -289,6 +330,18 @@ rb_comm_set_Errhandler(VALUE self, VALUE rb_errhandler)
   Data_Get_Struct(rb_errhandler, struct _Errhandler, errhandler);
   MPI_Comm_set_errhandler(comm->comm, errhandler->errhandler);
   return self;
+}
+
+// MPI::Request
+static VALUE
+rb_request_wait(VALUE self)
+{
+  MPI_Status *status;
+  struct _Request *request;
+  Data_Get_Struct(self, struct _Request, request);
+  status = ALLOC(MPI_Status);
+  check_error(MPI_Wait(&(request->request), status));
+  return Data_Wrap_Struct(cStatus, 0, -1, status);
 }
 
 // MPI::Errhandler
@@ -347,9 +400,15 @@ void Init_mpi()
   rb_define_method(cComm, "rank", rb_comm_rank, 0);
   rb_define_method(cComm, "size", rb_comm_size, 0);
   rb_define_method(cComm, "Send", rb_comm_send, 3);
+  rb_define_method(cComm, "Isend", rb_comm_isend, 3);
   rb_define_method(cComm, "Recv", rb_comm_recv, 3);
+  rb_define_method(cComm, "Irecv", rb_comm_irecv, 3);
   rb_define_method(cComm, "Errhandler", rb_comm_get_Errhandler, 0);
   rb_define_method(cComm, "Errhandler=", rb_comm_set_Errhandler, 1);
+
+  // MPI::Request
+  cRequest = rb_define_class_under(mMPI, "Request", rb_cObject);
+  rb_define_method(cRequest, "Wait", rb_request_wait, 0);
 
   // MPI::Errhandler
   cErrhandler = rb_define_class_under(mMPI, "Errhandler", rb_cObject);
