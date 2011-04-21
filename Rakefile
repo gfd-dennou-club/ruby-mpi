@@ -15,8 +15,8 @@ Jeweler::Tasks.new do |gem|
   gem.name = "ruby-mpi"
   gem.homepage = "http://github.com/seiya/ruby-mpi"
   gem.license = "MIT"
-  gem.summary = %Q{TODO: one-line summary of your gem}
-  gem.description = %Q{TODO: longer description of your gem}
+  gem.summary = "A ruby binding of MPI"
+  gem.description = "A ruby binding of Message Passing Interface (MPI), which is an API specification that allows processes to communicate with one another by sending and receiving messages."
   gem.email = "seiya@gfd-dennou.org"
   gem.authors = ["Seiya Nishizawa"]
   # Include your dependencies below. Runtime dependencies are required when using your gem,
