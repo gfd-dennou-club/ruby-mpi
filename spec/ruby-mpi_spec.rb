@@ -8,7 +8,7 @@ describe "Mpi" do
     MPI.Finalize()
   end
 
-  it "should be able to ge version" do
+  it "should give version" do
     MPI.constants.should include("VERSION")
     MPI.constants.should include("SUBVERSION")
     MPI::VERSION.class.should eql(Fixnum)
@@ -23,7 +23,7 @@ describe "Mpi" do
     world.size.should > 0
   end
 
-  it "should be able to send and receive String" do
+  it "should send and receive String" do
     world = MPI::Comm::WORLD
     message = "Hello from #{world.rank}"
     tag = 0
@@ -40,7 +40,7 @@ describe "Mpi" do
     end
   end
 
-  it "should be able to send and receive NArray" do
+  it "should send and receive NArray" do
     world = MPI::Comm::WORLD
     tag = 0
     [NArray[1,2,3], NArray[3.0,2.0,1.0]].each do |ary0|
@@ -59,29 +59,45 @@ describe "Mpi" do
     end
   end
 
-  it "should be able to send and receive without blocking" do
+  it "should send and receive without blocking" do
     world = MPI::Comm::WORLD
     message = "Hello from #{world.rank}"
     tag = 0
     request = world.Isend(message, 0, tag)
     status = request.Wait
-    status.source.should eql(0)
+    status.source.should eql(world.rank)
     status.tag.should eql(tag)
     if world.rank == 0
       world.size.times do |i|
         str = " "*30
         request = world.Irecv(str, i, tag)
         status = request.Wait
-        status.source.should eql(0)
+        status.source.should eql(i)
         status.tag.should eql(tag)
         str.should match(/\AHello from #{i}+/)
       end
     end
   end
 
+  it "should gather data" do
+    world = MPI::Comm::WORLD
+    rank = world.rank
+    size = world.size
+    root = 0
+    bufsize = 2
+    sendbuf = rank.to_s*bufsize
+    recvbuf = rank == root ? "?"*bufsize*size  : nil
+    world.Gather(sendbuf, recvbuf, root)
+    if rank == root
+      str = ""
+      size.times{|i| str << i.to_s*bufsize}
+      recvbuf.should eql(str)
+    end
+  end
 
 
-  it "shoud be raise exeption" do
+
+  it "shoud raise exeption" do
     world = MPI::Comm::WORLD
     lambda{ world.Send("", -1, 0) }.should raise_error(MPI::ERR::RANK)
     lambda{ world.Send("", world.size+1, 0) }.should raise_error(MPI::ERR::RANK)
