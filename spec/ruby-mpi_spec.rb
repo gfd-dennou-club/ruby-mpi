@@ -153,6 +153,18 @@ describe "Mpi" do
     end
   end
 
+  it "should reduce data and send to all processes (allreduce)" do
+    world = MPI::Comm::WORLD
+    rank = world.rank
+    size = world.size
+    bufsize = 2
+    sendbuf = NArray.to_na([rank]*bufsize)
+    recvbuf = NArray.new(sendbuf.typecode,bufsize)
+    world.Allreduce(sendbuf, recvbuf, MPI::Op::SUM)
+    ary = NArray.new(sendbuf.typecode,bufsize).fill(size*(size-1)/2.0)
+    recvbuf.should == ary
+  end
+
 
 
 
