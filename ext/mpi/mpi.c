@@ -528,6 +528,7 @@ rb_comm_barrier(VALUE self)
   struct _Comm *comm;
   Data_Get_Struct(self, struct _Comm, comm);
   check_error(MPI_Barrier(comm->comm));
+  return self;
 }
 
 // MPI::Request
