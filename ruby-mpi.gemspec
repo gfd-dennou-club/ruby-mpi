@@ -5,11 +5,11 @@
 
 Gem::Specification.new do |s|
   s.name = %q{ruby-mpi}
-  s.version = "0.1.0"
+  s.version = "0.2.0"
 
   s.required_rubygems_version = Gem::Requirement.new(">= 0") if s.respond_to? :required_rubygems_version=
   s.authors = ["Seiya Nishizawa"]
-  s.date = %q{2011-04-21}
+  s.date = %q{2011-04-22}
   s.description = %q{A ruby binding of Message Passing Interface (MPI), which is an API specification that allows processes to communicate with one another by sending and receiving messages.}
   s.email = %q{seiya@gfd-dennou.org}
   s.extensions = ["ext/mpi/extconf.rb"]
@@ -38,7 +38,7 @@ Gem::Specification.new do |s|
   s.homepage = %q{http://github.com/seiya/ruby-mpi}
   s.licenses = ["MIT"]
   s.require_paths = ["lib"]
-  s.rubygems_version = %q{1.3.7}
+  s.rubygems_version = %q{1.7.2}
   s.summary = %q{A ruby binding of MPI}
   s.test_files = [
     "spec/ruby-mpi_spec.rb",
@@ -46,7 +46,6 @@ Gem::Specification.new do |s|
   ]
 
   if s.respond_to? :specification_version then
-    current_version = Gem::Specification::CURRENT_SPECIFICATION_VERSION
     s.specification_version = 3
 
     if Gem::Version.new(Gem::VERSION) >= Gem::Version.new('1.2.0') then
