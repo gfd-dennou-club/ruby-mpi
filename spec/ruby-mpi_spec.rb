@@ -24,31 +24,33 @@ describe "MPI" do
   end
 
   it "should send and receive String" do
-    message = "Hello from #{@world.rank}"
+    rank = @world.rank
+    message = "Hello from #{rank}"
     tag = 0
-    @world.Send(message, 0, tag)
-    if @world.rank == 0
-      @world.size.times do |i|
-        str = " "*30
-        status = @world.Recv(str, i, tag)
-        status.source.should eql(i)
+    @world.Send(message, 0, tag) if rank != 0
+    if rank == 0
+      (@world.size-1).times do |i|
+        str = " "*"Hello from #{i+1}".length
+        status = @world.Recv(str, i+1, tag)
+        status.source.should eql(i+1)
         status.tag.should eql(tag)
         status.error.should eq(MPI::SUCCESS)
-        str.should match(/\AHello from #{i}+/)
+        str.should match(/\AHello from #{i+1}/)
       end
     end
   end
 
   it "should send and receive NArray" do
     tag = 0
+    rank = @world.rank
     [NArray[1,2,3], NArray[3.0,2.0,1.0]].each do |ary0|
       ary0 = NArray[1,2,3]
-      @world.Send(ary0, 0, tag)
-      if @world.rank == 0
-        @world.size.times do |i|
+      @world.Send(ary0, 0, tag) if rank != 0
+      if rank == 0
+        (@world.size-1).times do |i|
           ary1 = NArray.new(ary0.typecode, ary0.total)
-          status = @world.Recv(ary1, i, tag)
-          status.source.should eql(i)
+          status = @world.Recv(ary1, i+1, tag)
+          status.source.should eql(i+1)
           status.tag.should eql(tag)
           status.error.should eq(MPI::SUCCESS)
           ary1.should == ary0
@@ -58,20 +60,23 @@ describe "MPI" do
   end
 
   it "should send and receive without blocking" do
-    message = "Hello from #{@world.rank}"
     tag = 0
-    request = @world.Isend(message, 0, tag)
-    status = request.Wait
-    status.source.should eql(@world.rank)
-    status.tag.should eql(tag)
-    if @world.rank == 0
-      @world.size.times do |i|
-        str = " "*30
-        request = @world.Irecv(str, i, tag)
-        status = request.Wait
-        status.source.should eql(i)
+    rank = @world.rank
+    message = "Hello from #{rank}"
+    if rank != 0
+      request = @world.Isend(message, 0, tag)
+      status = request.Wait
+#      status.source.should eql(rank)
+      status.tag.should eql(tag)
+    end
+    if rank == 0
+      (@world.size-1).times do |i|
+        str = " "*"Hello from #{i+1}".length
+        request_recv = @world.Irecv(str, i+1, tag)
+        status = request_recv.Wait
+        status.source.should eql(i+1)
         status.tag.should eql(tag)
-        str.should match(/\AHello from #{i}+/)
+        str.should match(/\AHello from #{i+1}/)
       end
     end
   end
@@ -195,7 +200,6 @@ describe "MPI" do
 
 
   it "shoud raise exeption" do
-    lambda{ @world.Send("", -1, 0) }.should raise_error(MPI::ERR::RANK)
     lambda{ @world.Send("", @world.size+1, 0) }.should raise_error(MPI::ERR::RANK)
     @world.Errhandler.should eql(MPI::Errhandler::ERRORS_RETURN)
   end
