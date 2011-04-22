@@ -1,8 +1,12 @@
-= ruby-mpi
+= Ruby-MPI
 
-Description goes here.
+Ruby-MPI is a ruby binding of Message Passing Interface (MPI), which is an API specification that allows processes to communicate with one another by sending and receiving messages.
 
-== Contributing to ruby-mpi
+== Install
+
+ # gem install ruby-mpi
+
+== Contributing to Ruby-MPI
  
 * Check out the latest master to make sure the feature hasn't been implemented or the bug hasn't been fixed yet
 * Check out the issue tracker to make sure someone already hasn't requested it and/or contributed it
