@@ -54,15 +54,19 @@ static VALUE eBUFFER, eCOUNT, eTYPE, eTAG, eCOMM, eRANK, eREQUEST, eROOT, eGROUP
 
 struct _Comm {
   MPI_Comm Comm;
+  bool free;
 };
 struct _Request {
   MPI_Request Request;
+  bool free;
 };
 struct _Op {
   MPI_Op Op;
+  bool free;
 };
 struct _Errhandler {
   MPI_Errhandler Errhandler;
+  bool free;
 };
 
 static bool _initialized = false;
@@ -75,7 +79,7 @@ name ## _free(void *ptr)\
 {\
   struct _ ## name *obj;\
   obj = (struct _ ## name*) ptr;\
-  if (!_finalized)\
+  if (!_finalized && obj->free)\
     MPI_ ## name ## _free(&(obj->name)); \
   free(obj);\
 }
@@ -162,6 +166,7 @@ check_error(int error)
 {\
   v = ALLOC(struct _ ## v);\
   v->v = const;\
+  v->free = false;\
   rb_define_const(c ## v, #name, Data_Wrap_Struct(c ## v, NULL, v ## _free, v));	\
 }
 
@@ -262,6 +267,7 @@ rb_comm_initialize(VALUE self)
 {
   rb_raise(rb_eRuntimeError, "not developed yet");
   // MPI_Comm_create()
+  // comm->free = true;
 }
 static VALUE
 rb_comm_size(VALUE self)
@@ -312,6 +318,7 @@ rb_comm_isend(VALUE self, VALUE rb_obj, VALUE rb_dest, VALUE rb_tag)
   tag = NUM2INT(rb_tag);
   Data_Get_Struct(self, struct _Comm, comm);
   rb_request = Data_Make_Struct(cRequest, struct _Request, NULL, Request_free, request);
+  request->free = true;
   check_error(MPI_Isend(buffer, len, type, dest, tag, comm->Comm, &(request->Request)));
 
   return rb_request;
@@ -350,6 +357,7 @@ rb_comm_irecv(VALUE self, VALUE rb_obj, VALUE rb_source, VALUE rb_tag)
   tag = NUM2INT(rb_tag);
   Data_Get_Struct(self, struct _Comm, comm);
   rb_request = Data_Make_Struct(cRequest, struct _Request, NULL, Request_free, request);
+  request->free = true;
   check_error(MPI_Irecv(buffer, len, type, source, tag, comm->Comm, &(request->Request)));
 
   return rb_request;
@@ -529,6 +537,7 @@ rb_comm_get_Errhandler(VALUE self)
 
   Data_Get_Struct(self, struct _Comm, comm);
   rb_errhandler = Data_Make_Struct(cErrhandler, struct _Errhandler, NULL, Errhandler_free, errhandler);
+  errhandler->free = false;
   MPI_Comm_get_errhandler(comm->Comm, &(errhandler->Errhandler));
   return rb_errhandler;
 }
