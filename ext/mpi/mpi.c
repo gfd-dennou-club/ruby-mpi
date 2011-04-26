@@ -11,7 +11,7 @@
   if (TYPE(rb_obj) == T_STRING) {\
     len = RSTRING_LEN(rb_obj);\
     buffer = (void*)StringValuePtr(rb_obj);\
-    typ = MPI_CHAR;\
+    typ = MPI_BYTE;\
   } else if (IsNArray(rb_obj)) {		\
     struct NARRAY *a;\
     GetNArray(rb_obj, a);\
