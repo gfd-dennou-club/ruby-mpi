@@ -41,7 +41,7 @@ describe "MPI" do
   end
 
   it "should send and receive NArray" do
-    tag = 0
+    tag = 1
     rank = @world.rank
     [NArray[1,2,3], NArray[3.0,2.0,1.0]].each do |ary0|
       ary0 = NArray[1,2,3]
@@ -60,7 +60,7 @@ describe "MPI" do
   end
 
   it "should send and receive without blocking" do
-    tag = 0
+    tag = 2
     rank = @world.rank
     message = "Hello from #{rank}"
     if rank != 0
