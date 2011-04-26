@@ -73,27 +73,6 @@ static bool _initialized = false;
 static bool _finalized = false;
 
 
-#define DEF_FREE(name) \
-static void \
-name ## _free(void *ptr)\
-{\
-  struct _ ## name *obj;\
-  obj = (struct _ ## name*) ptr;\
-  if (!_finalized && obj->free)\
-    MPI_ ## name ## _free(&(obj->name)); \
-  free(obj);\
-}
-DEF_FREE(Comm)
-DEF_FREE(Request)
-DEF_FREE(Op)
-DEF_FREE(Errhandler)
-static void
-Status_free(void *ptr)
-{
-  free((MPI_Status*) ptr);
-}
-
-
 #define CAE_ERR(type) case MPI_ERR_ ## type: rb_raise(e ## type,"%s",str); break
 static void
 check_error(int error)
@@ -167,6 +146,27 @@ check_error(int error)
   }
 }
 
+#define DEF_FREE(name, capit)				\
+static void \
+name ## _free(void *ptr)\
+{\
+  struct _ ## name *obj;\
+  obj = (struct _ ## name*) ptr;\
+  if (!_finalized && obj->free && obj->name!=MPI_ ## capit ##_NULL)\
+    check_error(MPI_ ## name ## _free(&(obj->name))); \
+  free(obj);\
+}
+DEF_FREE(Comm, COMM)
+DEF_FREE(Request, REQUEST)
+DEF_FREE(Op, OP)
+DEF_FREE(Errhandler, ERRHANDLER)
+static void
+Status_free(void *ptr)
+{
+  free((MPI_Status*) ptr);
+}
+
+
 #define DEF_CONST(v, const, name) \
 {\
   v = ALLOC(struct _ ## v);\
@@ -226,7 +226,7 @@ rb_m_init(int argc, VALUE *argv, VALUE self)
   // define MPI::Comm::WORLD
   struct _Comm *Comm;
   DEF_CONST(Comm, MPI_COMM_WORLD, WORLD);
-  MPI_Errhandler_set(MPI_COMM_WORLD, MPI_ERRORS_RETURN);
+  check_error(MPI_Errhandler_set(MPI_COMM_WORLD, MPI_ERRORS_RETURN));
 
   // define MPI::Op::???
   struct _Op *Op;
@@ -543,7 +543,7 @@ rb_comm_get_Errhandler(VALUE self)
   Data_Get_Struct(self, struct _Comm, comm);
   rb_errhandler = Data_Make_Struct(cErrhandler, struct _Errhandler, NULL, Errhandler_free, errhandler);
   errhandler->free = false;
-  MPI_Comm_get_errhandler(comm->Comm, &(errhandler->Errhandler));
+  check_error(MPI_Comm_get_errhandler(comm->Comm, &(errhandler->Errhandler)));
   return rb_errhandler;
 }
 static VALUE
@@ -554,7 +554,7 @@ rb_comm_set_Errhandler(VALUE self, VALUE rb_errhandler)
 
   Data_Get_Struct(self, struct _Comm, comm);
   Data_Get_Struct(rb_errhandler, struct _Errhandler, errhandler);
-  MPI_Comm_set_errhandler(comm->Comm, errhandler->Errhandler);
+  check_error(MPI_Comm_set_errhandler(comm->Comm, errhandler->Errhandler));
   return self;
 }
 static VALUE
