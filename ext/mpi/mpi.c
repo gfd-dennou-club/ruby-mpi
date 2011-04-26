@@ -372,7 +372,7 @@ rb_comm_gather(VALUE self, VALUE rb_sendbuf, VALUE rb_recvbuf, VALUE rb_root)
 {
   void *sendbuf, *recvbuf = NULL;
   int sendcount, recvcount = 0;
-  MPI_Datatype sendtype, recvtype = NULL;
+  MPI_Datatype sendtype, recvtype = 0;
   int root, rank, size;
   struct _Comm *comm;
   OBJ2C(rb_sendbuf, sendcount, sendbuf, sendtype);
@@ -427,7 +427,7 @@ rb_comm_scatter(VALUE self, VALUE rb_sendbuf, VALUE rb_recvbuf, VALUE rb_root)
 {
   void *sendbuf = NULL, *recvbuf;
   int sendcount = 0, recvcount;
-  MPI_Datatype sendtype = NULL, recvtype;
+  MPI_Datatype sendtype = 0, recvtype;
   int root, rank, size;
   struct _Comm *comm;
   OBJ2C(rb_recvbuf, recvcount, recvbuf, recvtype);
@@ -491,7 +491,7 @@ rb_comm_reduce(VALUE self, VALUE rb_sendbuf, VALUE rb_recvbuf, VALUE rb_op, VALU
 {
   void *sendbuf, *recvbuf = NULL;
   int sendcount, recvcount = 0;
-  MPI_Datatype sendtype, recvtype = NULL;
+  MPI_Datatype sendtype, recvtype = 0;
   int root, rank, size;
   struct _Comm *comm;
   struct _Op *op;
