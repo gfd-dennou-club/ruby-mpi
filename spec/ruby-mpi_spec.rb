@@ -34,7 +34,6 @@ describe "MPI" do
         status = @world.Recv(str, i+1, tag)
         status.source.should eql(i+1)
         status.tag.should eql(tag)
-        status.error.should eq(MPI::SUCCESS)
         str.should match(/\AHello from #{i+1}/)
       end
     end
@@ -52,7 +51,6 @@ describe "MPI" do
           status = @world.Recv(ary1, i+1, tag)
           status.source.should eql(i+1)
           status.tag.should eql(tag)
-          status.error.should eq(MPI::SUCCESS)
           ary1.should == ary0
         end
       end
@@ -66,8 +64,6 @@ describe "MPI" do
     if rank != 0
       request = @world.Isend(message, 0, tag)
       status = request.Wait
-#      status.source.should eql(rank)
-      status.tag.should eql(tag)
     end
     if rank == 0
       (@world.size-1).times do |i|
