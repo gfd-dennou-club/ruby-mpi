@@ -94,12 +94,17 @@ Status_free(void *ptr)
 }
 
 
-#define CAE_ERR(type) case MPI_ERR_ ## type: rb_raise(e ## type,""); break
+#define CAE_ERR(type) case MPI_ERR_ ## type: rb_raise(e ## type,"%s",str); break
 static void
 check_error(int error)
 {
-  switch (error) {
-  case MPI_SUCCESS: break;
+  if (error == MPI_SUCCESS) return;
+  int code, len;
+  char str[MPI_MAX_ERROR_STRING];
+  if (MPI_Error_class(error, &code)!=MPI_SUCCESS || MPI_Error_string(error, str, &len)!=MPI_SUCCESS)
+    rb_raise(rb_eRuntimeError, "unknown error occuerd in MPI call");
+
+  switch (code) {
     CAE_ERR(BUFFER);
     CAE_ERR(COUNT);
     CAE_ERR(TYPE);
@@ -158,7 +163,7 @@ check_error(int error)
     CAE_ERR(SYSRESOURCE);
 #endif
   default:
-    rb_raise(rb_eRuntimeError, "unknown error");
+    rb_raise(rb_eRuntimeError, "unknown error: %d", code);
   }
 }
 
