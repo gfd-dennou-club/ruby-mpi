@@ -4,6 +4,12 @@ MPI.Init
 
 
 world = MPI::Comm::WORLD
+
+if world.size == 1
+  print "Size is one, so do nothing\n"
+  exit
+end
+
 rank = world.rank
 
 if rank == 0
