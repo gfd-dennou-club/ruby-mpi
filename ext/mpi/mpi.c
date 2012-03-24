@@ -259,6 +259,16 @@ rb_m_finalize(VALUE self)
   return self;
 }
 
+static VALUE
+rb_m_abort(VALUE self, VALUE rcomm, VALUE rerror)
+{
+  struct _Comm *comm;
+  int ierror;
+  Data_Get_Struct(rcomm, struct _Comm, comm);
+  ierror = MPI_Abort(comm->Comm, NUM2INT(rerror));
+  return INT2NUM(ierror);
+}
+
 
 // MPI::Comm
 static VALUE
@@ -621,6 +631,7 @@ void Init_mpi()
   mMPI = rb_define_module("MPI");
   rb_define_module_function(mMPI, "Init", rb_m_init, -1);
   rb_define_module_function(mMPI, "Finalize", rb_m_finalize, -1);
+  rb_define_module_function(mMPI, "Abort", rb_m_abort, 2);
   rb_define_const(mMPI, "VERSION", INT2NUM(MPI_VERSION));
   rb_define_const(mMPI, "SUBVERSION", INT2NUM(MPI_SUBVERSION));
   rb_define_const(mMPI, "SUCCESS", INT2NUM(MPI_SUCCESS));
