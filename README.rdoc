@@ -18,6 +18,6 @@ Ruby-MPI is a ruby binding of Message Passing Interface (MPI), which is an API s
 
 == Copyright
 
-Copyright (c) 2011 Seiya Nishizawa. See LICENSE.txt for
+Copyright (c) 2011-2012 Seiya Nishizawa. See LICENSE.txt for
 further details.
 
