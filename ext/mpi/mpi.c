@@ -9,14 +9,13 @@
 #define OBJ2C(rb_obj, len, buffer, typ, off) \
 {\
   if (TYPE(rb_obj) == T_STRING) {\
-    len = RSTRING_LEN(rb_obj);\
-    buffer = (void*)(StringValuePtr(rb_obj) + off); \
+    if (len==0) len = RSTRING_LEN(rb_obj);\
+    buffer = (void*)(StringValuePtr(rb_obj) + off);\
     typ = MPI_BYTE;\
   } else if (IsNArray(rb_obj)) {\
     struct NARRAY *a;\
     GetNArray(rb_obj, a);\
     buffer = (void*)(a->ptr);\
-    len = a->total;\
     switch (a->type) {\
     case NA_BYTE:\
       typ = MPI_BYTE;\
@@ -25,30 +24,37 @@
     case NA_SINT:\
       typ = MPI_SHORT;\
       buffer = (void*)((char*)buffer + off*4);\
+      len *= 4;\
       break;\
     case NA_LINT:\
       typ = MPI_LONG;\
       buffer = (void*)((char*)buffer + off*8);\
+      len *= 8;\
       break;\
     case NA_SFLOAT:\
       typ = MPI_FLOAT;\
       buffer = (void*)((char*)buffer + off*4);\
+      len *= 4;\
       break;\
     case NA_DFLOAT:\
       typ = MPI_DOUBLE;\
       buffer = (void*)((char*)buffer + off*8);\
+      len *= 8;\
       break;\
     case NA_SCOMPLEX:\
       typ = MPI_2COMPLEX;\
       buffer = (void*)((char*)buffer + off*8);\
+      len *= 8;\
       break;\
     case NA_DCOMPLEX:\
       typ = MPI_2DOUBLE_COMPLEX;\
       buffer = (void*)((char*)buffer + off*16);\
+      len *= 16;\
       break;\
     default:\
       rb_raise(rb_eArgError, "narray type is invalid");\
     }\
+    if (len==0) len = a->total;\
   } else {\
     rb_raise(rb_eArgError, "Only String and NArray are supported");\
   }\
@@ -313,7 +319,7 @@ static VALUE
 rb_comm_send(VALUE self, VALUE rb_obj, VALUE rb_dest, VALUE rb_tag)
 {
   void* buffer;
-  int len, dest, tag;
+  int len=0, dest, tag;
   MPI_Datatype type;
   struct _Comm *comm;
 
@@ -329,7 +335,7 @@ static VALUE
 rb_comm_isend(VALUE self, VALUE rb_obj, VALUE rb_dest, VALUE rb_tag)
 {
   void* buffer;
-  int len, dest, tag;
+  int len=0, dest, tag;
   MPI_Datatype type;
   struct _Comm *comm;
   struct _Request *request;
@@ -348,15 +354,19 @@ rb_comm_isend(VALUE self, VALUE rb_obj, VALUE rb_dest, VALUE rb_tag)
 static VALUE
 rb_comm_recv(int argc, VALUE *argv, VALUE self)
 {
-  VALUE rb_obj, rb_source, rb_tag, rb_offset;
+  VALUE rb_obj, rb_source, rb_tag;
+  VALUE rb_len, rb_offset; // option
   void* buffer;
-  int len, source, tag, offset = 0;
+  int source, tag, len = 0, offset = 0;
   MPI_Datatype type;
   MPI_Status *status;
   struct _Comm *comm;
 
-  rb_scan_args(argc, argv, "31", &rb_obj, &rb_source, &rb_tag, &rb_offset);
+  rb_scan_args(argc, argv, "32", &rb_obj, &rb_source, &rb_tag, &rb_len, &rb_offset);
 
+  if (rb_len != Qnil) {
+    len = NUM2INT(rb_len);
+  }
   if (rb_offset != Qnil) {
     offset = NUM2INT(rb_offset);
   }
@@ -374,16 +384,20 @@ rb_comm_recv(int argc, VALUE *argv, VALUE self)
 static VALUE
 rb_comm_irecv(int argc, VALUE *argv, VALUE self)
 {
-  VALUE rb_obj, rb_source, rb_tag, rb_offset;
+  VALUE rb_obj, rb_source, rb_tag;
+  VALUE rb_len, rb_offset; // option
   void* buffer;
-  int len, source, tag, offset = 0;
+  int source, tag, len = 0, offset = 0;
   MPI_Datatype type;
   struct _Comm *comm;
   struct _Request *request;
   VALUE rb_request;
 
-  rb_scan_args(argc, argv, "31", &rb_obj, &rb_source, &rb_tag, &rb_offset);
+  rb_scan_args(argc, argv, "32", &rb_obj, &rb_source, &rb_tag, &rb_len, &rb_offset);
 
+  if (rb_len != Qnil) {
+    len = NUM2INT(rb_len);
+  }
   if (rb_offset != Qnil) {
     offset = NUM2INT(rb_offset);
   }
@@ -403,7 +417,7 @@ static VALUE
 rb_comm_gather(VALUE self, VALUE rb_sendbuf, VALUE rb_recvbuf, VALUE rb_root)
 {
   void *sendbuf, *recvbuf = NULL;
-  int sendcount, recvcount = 0;
+  int sendcount=0, recvcount = 0;
   MPI_Datatype sendtype, recvtype = 0;
   int root, rank, size;
   struct _Comm *comm;
@@ -425,7 +439,7 @@ static VALUE
 rb_comm_allgather(VALUE self, VALUE rb_sendbuf, VALUE rb_recvbuf)
 {
   void *sendbuf, *recvbuf;
-  int sendcount, recvcount;
+  int sendcount=0, recvcount=0;
   MPI_Datatype sendtype, recvtype;
   int rank, size;
   struct _Comm *comm;
@@ -444,7 +458,7 @@ static VALUE
 rb_comm_bcast(VALUE self, VALUE rb_buffer, VALUE rb_root)
 {
   void *buffer;
-  int count;
+  int count=0;
   MPI_Datatype type;
   int root;
   struct _Comm *comm;
@@ -458,7 +472,7 @@ static VALUE
 rb_comm_scatter(VALUE self, VALUE rb_sendbuf, VALUE rb_recvbuf, VALUE rb_root)
 {
   void *sendbuf = NULL, *recvbuf;
-  int sendcount = 0, recvcount;
+  int sendcount = 0, recvcount=0;
   MPI_Datatype sendtype = 0, recvtype;
   int root, rank, size;
   struct _Comm *comm;
@@ -480,7 +494,7 @@ static VALUE
 rb_comm_sendrecv(VALUE self, VALUE rb_sendbuf, VALUE rb_dest, VALUE rb_sendtag, VALUE rb_recvbuf, VALUE rb_source, VALUE rb_recvtag)
 {
   void *sendbuf, *recvbuf;
-  int sendcount, recvcount;
+  int sendcount=0, recvcount=0;
   MPI_Datatype sendtype, recvtype;
   int dest, source;
   int sendtag, recvtag;
@@ -503,7 +517,7 @@ static VALUE
 rb_comm_alltoall(VALUE self, VALUE rb_sendbuf, VALUE rb_recvbuf)
 {
   void *sendbuf, *recvbuf;
-  int sendcount, recvcount;
+  int sendcount=0, recvcount=0;
   MPI_Datatype sendtype, recvtype;
   int size;
   struct _Comm *comm;
@@ -522,7 +536,7 @@ static VALUE
 rb_comm_reduce(VALUE self, VALUE rb_sendbuf, VALUE rb_recvbuf, VALUE rb_op, VALUE rb_root)
 {
   void *sendbuf, *recvbuf = NULL;
-  int sendcount, recvcount = 0;
+  int sendcount=0, recvcount = 0;
   MPI_Datatype sendtype, recvtype = 0;
   int root, rank, size;
   struct _Comm *comm;
@@ -547,7 +561,7 @@ static VALUE
 rb_comm_allreduce(VALUE self, VALUE rb_sendbuf, VALUE rb_recvbuf, VALUE rb_op)
 {
   void *sendbuf, *recvbuf;
-  int sendcount, recvcount;
+  int sendcount=0, recvcount=0;
   MPI_Datatype sendtype, recvtype;
   int rank, size;
   struct _Comm *comm;

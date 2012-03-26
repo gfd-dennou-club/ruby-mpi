@@ -17,7 +17,7 @@ length = 2
 if rank == 0
   a = NArray.float(length,size-1)
   (size-1).times do |i|
-    world.Recv(a, i+1, 1, i*length)
+    world.Recv(a, i+1, 1, length, i*length)
   end
   p a
 else
