@@ -16,6 +16,7 @@
     struct NARRAY *a;\
     GetNArray(rb_obj, a);\
     buffer = (void*)(a->ptr);\
+    if (len==0) len = a->total;\
     switch (a->type) {\
     case NA_BYTE:\
       typ = MPI_BYTE;\
@@ -24,37 +25,30 @@
     case NA_SINT:\
       typ = MPI_SHORT;\
       buffer = (void*)((char*)buffer + off*4);\
-      len *= 4;\
       break;\
     case NA_LINT:\
       typ = MPI_LONG;\
       buffer = (void*)((char*)buffer + off*8);\
-      len *= 8;\
       break;\
     case NA_SFLOAT:\
       typ = MPI_FLOAT;\
       buffer = (void*)((char*)buffer + off*4);\
-      len *= 4;\
       break;\
     case NA_DFLOAT:\
       typ = MPI_DOUBLE;\
       buffer = (void*)((char*)buffer + off*8);\
-      len *= 8;\
       break;\
     case NA_SCOMPLEX:\
       typ = MPI_2COMPLEX;\
       buffer = (void*)((char*)buffer + off*8);\
-      len *= 8;\
       break;\
     case NA_DCOMPLEX:\
       typ = MPI_2DOUBLE_COMPLEX;\
       buffer = (void*)((char*)buffer + off*16);\
-      len *= 16;\
       break;\
     default:\
       rb_raise(rb_eArgError, "narray type is invalid");\
     }\
-    if (len==0) len = a->total;\
   } else {\
     rb_raise(rb_eArgError, "Only String and NArray are supported");\
   }\
