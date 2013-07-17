@@ -10,6 +10,6 @@ begin
 rescue LoadError
   dir_config("narray", Config::CONFIG["sitearchdir"])
 end
-find_header("narray.h", gem_path)
+find_header("narray.h", File.join(gem_path,"src"))
 
 create_makefile("mpi")
