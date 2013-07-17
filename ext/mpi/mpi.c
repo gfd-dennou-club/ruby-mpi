@@ -163,10 +163,21 @@ name ## _free(void *ptr)\
     check_error(MPI_ ## name ## _free(&(obj->name))); \
   free(obj);\
 }
+#define DEF_FREE2(name, capit)				\
+static void \
+name ## _free2(void *ptr)\
+{\
+  struct _ ## name *obj;\
+  obj = (struct _ ## name*) ptr;\
+  free(obj);\
+}
 DEF_FREE(Comm, COMM)
 DEF_FREE(Request, REQUEST)
 DEF_FREE(Op, OP)
 DEF_FREE(Errhandler, ERRHANDLER)
+DEF_FREE2(Comm, COMM)
+DEF_FREE2(Op, OP)
+DEF_FREE2(Errhandler, ERRHANDLER)
 static void
 Status_free(void *ptr)
 {
@@ -179,7 +190,7 @@ Status_free(void *ptr)
   v = ALLOC(struct _ ## v);\
   v->v = const;\
   v->free = false;\
-  rb_define_const(c ## v, #name, Data_Wrap_Struct(c ## v, NULL, v ## _free, v));	\
+  rb_define_const(c ## v, #name, Data_Wrap_Struct(c ## v, NULL, v ## _free2, v));	\
 }
 
 static void
