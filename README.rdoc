@@ -5,6 +5,11 @@ Ruby-MPI is a ruby binding of Message Passing Interface (MPI), which is an API s
 == Install
 
  # gem install ruby-mpi
+ 
+== How to run
+Use mpirun or mpiexec to run a script
+e.g. (run with 4 processes)
+ # mpirun -np 4 ruby hello.rb
 
 == Contributing to Ruby-MPI
  
