@@ -13,14 +13,14 @@ describe "MPI" do
   end
 
   it "should give version" do
-    MPI::VERSION.class.should eql(Fixnum)
-    MPI::SUBVERSION.class.should eql(Fixnum)
+    expect(MPI::VERSION.class).to eq(Fixnum)
+    expect(MPI::SUBVERSION.class).to eq(Fixnum)
   end
 
   it "should give rank and size" do
-    @world.rank.class.should eql(Fixnum)
-    @world.size.class.should eql(Fixnum)
-    @world.size.should > 0
+    expect(@world.rank.class).to eql(Fixnum)
+    expect(@world.size.class).to eql(Fixnum)
+    expect(@world.size).to be > 0
   end
 
   it "should send and receive String" do
@@ -32,9 +32,9 @@ describe "MPI" do
       (@world.size-1).times do |i|
         str = " "*"Hello from #{i+1}".length
         status = @world.Recv(str, i+1, tag)
-        status.source.should eql(i+1)
-        status.tag.should eql(tag)
-        str.should match(/\AHello from #{i+1}/)
+        expect(status.source).to eql(i+1)
+        expect(status.tag).to eql(tag)
+        expect(str).to match /\AHello from #{i+1}/
       end
     end
   end
@@ -49,9 +49,9 @@ describe "MPI" do
         (@world.size-1).times do |i|
           ary1 = NArray.new(ary0.typecode, ary0.total)
           status = @world.Recv(ary1, i+1, tag)
-          status.source.should eql(i+1)
-          status.tag.should eql(tag)
-          ary1.should == ary0
+          expect(status.source).to eql(i+1)
+          expect(status.tag).to eql(tag)
+          expect(ary1).to be == ary0
         end
       end
     end
@@ -70,9 +70,9 @@ describe "MPI" do
         str = " "*"Hello from #{i+1}".length
         request_recv = @world.Irecv(str, i+1, tag)
         status = request_recv.Wait
-        status.source.should eql(i+1)
-        status.tag.should eql(tag)
-        str.should match(/\AHello from #{i+1}/)
+        expect(status.source).to eql(i+1)
+        expect(status.tag).to eql(tag)
+        expect(str).to match(/\AHello from #{i+1}/)
       end
     end
   end
@@ -88,7 +88,7 @@ describe "MPI" do
     if rank == root
       str = ""
       size.times{|i| str << i.to_s*bufsize}
-      recvbuf.should eql(str)
+      expect(recvbuf).to eql(str)
     end
   end
 
@@ -101,7 +101,7 @@ describe "MPI" do
     @world.Allgather(sendbuf, recvbuf)
     str = ""
     size.times{|i| str << i.to_s*bufsize}
-    recvbuf.should eql(str)
+    expect(recvbuf).to eql(str)
   end
 
   it "should broad cast data (bcast)" do
@@ -114,7 +114,7 @@ describe "MPI" do
       buffer = " "*bufsize
     end
     @world.Bcast(buffer, root)
-    buffer.should eql(root.to_s*bufsize)
+    expect(buffer).to eql(root.to_s*bufsize)
   end
 
   it "should scatter data" do
@@ -130,7 +130,7 @@ describe "MPI" do
     end
     recvbuf = " "*bufsize
     @world.Scatter(sendbuf, recvbuf, root)
-    recvbuf.should eql(rank.to_s*bufsize)
+    expect(recvbuf).to eql(rank.to_s*bufsize)
   end
 
   it "should send and recv data (sendrecv)" do
@@ -149,7 +149,7 @@ describe "MPI" do
     recvbuf = " "*bufsize
     @world.Sendrecv(sendbuf, dest, sendtag, recvbuf, source, recvtag);
     if source != MPI::PROC_NULL
-      recvbuf.should  eql(source.to_s*bufsize)
+      expect(recvbuf).to  eql(source.to_s*bufsize)
     end
   end
 
@@ -162,7 +162,7 @@ describe "MPI" do
     @world.Alltoall(sendbuf, recvbuf)
     str = ""
     size.times{|i| str << i.to_s*bufsize}
-    recvbuf.should eql(str)
+    expect(recvbuf).to eql(str)
   end
 
   it "should reduce data" do
@@ -175,7 +175,7 @@ describe "MPI" do
     @world.Reduce(sendbuf, recvbuf, MPI::Op::SUM, root)
     if rank == root
       ary = NArray.new(sendbuf.typecode,bufsize).fill(size*(size-1)/2.0)
-      recvbuf.should == ary
+      expect(recvbuf).to be == ary
     end
   end
 
@@ -187,7 +187,7 @@ describe "MPI" do
     recvbuf = NArray.new(sendbuf.typecode,bufsize)
     @world.Allreduce(sendbuf, recvbuf, MPI::Op::SUM)
     ary = NArray.new(sendbuf.typecode,bufsize).fill(size*(size-1)/2.0)
-    recvbuf.should == ary
+    expect(recvbuf).to be == ary
   end
 
   it "should not raise exception in calling barrier" do
@@ -196,8 +196,8 @@ describe "MPI" do
 
 
   it "shoud raise exeption" do
-    lambda{ @world.Send("", @world.size+1, 0) }.should raise_error(MPI::ERR::RANK)
-    @world.Errhandler.should eql(MPI::Errhandler::ERRORS_RETURN)
+    expect { @world.Send("", @world.size+1, 0) }.to raise_error(MPI::ERR::RANK)
+    expect(@world.Errhandler).to eql(MPI::Errhandler::ERRORS_RETURN)
   end
 
 end
