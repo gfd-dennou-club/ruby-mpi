@@ -6,7 +6,9 @@ rvm:
  - rbx-2
 addons:
  apt:
-  packages: openmpi-dev openmpi-bin
+  packages:
+   - openmpi-dev
+   - openmpi-bin
 before_script:
  - bundle install
  - bundle exec rake compile
