@@ -7,7 +7,7 @@ rvm:
 addons:
  apt:
   packages:
-   - openmpi-dev
+   - libopenmpi-dev
    - openmpi-bin
 before_script:
  - bundle install
