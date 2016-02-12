@@ -11,4 +11,5 @@ group :development do
   gem "jeweler", ">= 1.5.2"
   gem "simplecov", ">= 0"
   gem "narray", ">= 0"
+  gem "rake-compiler", ">= 0"
 end

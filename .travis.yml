@@ -1,7 +1,14 @@
 language: ruby
 rvm:
-- 2.0.0
-- 1.9.3
-- jruby-19mode
-- rbx-2
-script: bundle exec mpirun -n 2 rspec
+ - 2.0.0
+ - 1.9.3
+ - jruby-19mode
+ - rbx-2
+addons:
+ apt:
+  packages: openmpi-dev openmpi-bin
+before_script:
+ - bundle install
+ - bundle exec rake compile
+script:
+ - bundle exec mpirun -n 2 rspec

@@ -51,6 +51,14 @@ Rake::RDocTask.new do |rdoc|
   rdoc.rdoc_files.include('samples/*.rb')
 end
 
+if RUBY_PLATFORM =~ /java/
+  require "rake/javaextensiontask"
+  Rake::JavaExtensionTask.new("mpi")
+else
+  require "rake/extensiontask"
+  Rake::ExtensionTask.new("mpi")
+end
+
 
 CLEAN.include("ext/mpi/*.o")
 CLEAN.include("ext/mpi/mkmf.log")
