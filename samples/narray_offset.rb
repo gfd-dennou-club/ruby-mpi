@@ -1,4 +1,7 @@
 require "mpi"
+if defined?(NumRu::NArray)
+  include NumRu
+end
 
 MPI.Init
 

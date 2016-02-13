@@ -666,8 +666,6 @@ rb_status_error(VALUE self)
 void Init_mpi()
 {
 
-  rb_require("narray");
-
   // MPI
   mMPI = rb_define_module("MPI");
   rb_define_module_function(mMPI, "Init", rb_m_init, -1);

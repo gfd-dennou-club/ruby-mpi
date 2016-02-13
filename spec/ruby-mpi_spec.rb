@@ -1,5 +1,9 @@
 require File.expand_path(File.dirname(__FILE__) + '/spec_helper')
 
+if defined?(NumRu::NArray)
+  include NumRu
+end
+
 describe "MPI" do
   before(:all) do
     MPI.Init()
