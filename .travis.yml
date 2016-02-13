@@ -5,6 +5,9 @@ os:
 rvm:
  - 2.0.0
  - 1.9.3
+cache:
+ - bundler
+ - apt
 addons:
  apt:
   packages:
@@ -14,9 +17,11 @@ before_install:
  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew update; fi
  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew install open-mpi; fi
 before_script:
- - bundle install
  - bundle exec rake compile
 env:
  - JRUBY_OPTS=-Xcext.enabled=true
 script:
  - bundle exec mpirun -n 2 rspec
+ - bundle exec mpirun -n 2 ruby -Ilib samples/hello.rb
+ - bundle exec mpirun -n 2 ruby -Ilib samples/narray.rb
+ - bundle exec mpirun -n 2 ruby -Ilib samples/narray_offset.rb
