@@ -171,9 +171,9 @@ name ## _free2(void *ptr)\
   obj = (struct _ ## name*) ptr;\
   free(obj);\
 }
-DEF_FREE(Comm, COMM)
+//DEF_FREE(Comm, COMM)
 DEF_FREE(Request, REQUEST)
-DEF_FREE(Op, OP)
+//DEF_FREE(Op, OP)
 DEF_FREE(Errhandler, ERRHANDLER)
 DEF_FREE2(Comm, COMM)
 DEF_FREE2(Op, OP)
@@ -244,7 +244,7 @@ rb_m_init(int argc, VALUE *argv, VALUE self)
   // define MPI::Comm::WORLD
   struct _Comm *Comm;
   DEF_CONST(Comm, MPI_COMM_WORLD, WORLD);
-  check_error(MPI_Errhandler_set(MPI_COMM_WORLD, MPI_ERRORS_RETURN));
+  check_error(MPI_Comm_set_errhandler(MPI_COMM_WORLD, MPI_ERRORS_RETURN));
 
   // define MPI::Op::???
   struct _Op *Op;
@@ -289,12 +289,14 @@ rb_m_abort(VALUE self, VALUE rcomm, VALUE rerror)
 
 
 // MPI::Comm
+/*
 static VALUE
 rb_comm_alloc(VALUE klass)
 {
   struct _Comm *ptr = ALLOC(struct _Comm);
   return Data_Wrap_Struct(klass, NULL, Comm_free, ptr);
 }
+*/
 static VALUE
 rb_comm_initialize(VALUE self)
 {
