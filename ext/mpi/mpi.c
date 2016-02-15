@@ -5,6 +5,28 @@
 #include "narray.h"
 #include "mpi.h"
 
+#if SIZEOF_SHORT == 2
+# define NA_MPI_SINT MPI_SHORT
+#else
+---->> Please define NA_MPI_SINT manually because sizeof(short) != 2. <<----
+#endif
+
+#if SIZEOF_LONG == 4
+# define NA_MPI_LINT MPI_LONG
+#else
+# if SIZEOF_INT == 4
+#  define NA_MPI_LINT MPI_INT
+# else
+---->> Please define NA_MPI_LINT manually because sizeof(long) != 4. <<----
+# endif
+#endif
+
+#if SIZEOF_LONG_LONG == 8
+# define NA_MPI_LLINT MPI_LONG_LONG
+#else
+---->> Please define NA_MPI_LLINT manually because sizeof(long long) != 8. <<----
+#endif
+
 
 #define OBJ2C(rb_obj, len, buffer, typ, off) \
 {\
@@ -23,15 +45,15 @@
       buffer = (void*)((char*)buffer + off);\
       break;\
     case NA_SINT:\
-      typ = MPI_SHORT;\
+      typ = NA_MPI_SINT;\
       buffer = (void*)((char*)buffer + off*2);\
       break;\
     case NA_LINT:\
-      typ = MPI_LONG;\
+      typ = NA_MPI_LINT;\
       buffer = (void*)((char*)buffer + off*4);\
       break;\
     case NA_LLINT:\
-      typ = MPI_LONG;\
+      typ = NA_MPI_LLINT;\
       buffer = (void*)((char*)buffer + off*8);\
       break;\
     case NA_SFLOAT:\
