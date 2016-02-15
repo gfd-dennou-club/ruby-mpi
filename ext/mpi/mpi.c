@@ -24,9 +24,13 @@
       break;\
     case NA_SINT:\
       typ = MPI_SHORT;\
-      buffer = (void*)((char*)buffer + off*4);\
+      buffer = (void*)((char*)buffer + off*2);\
       break;\
     case NA_LINT:\
+      typ = MPI_LONG;\
+      buffer = (void*)((char*)buffer + off*4);\
+      break;\
+    case NA_LLINT:\
       typ = MPI_LONG;\
       buffer = (void*)((char*)buffer + off*8);\
       break;\
@@ -303,6 +307,7 @@ rb_comm_initialize(VALUE self)
   rb_raise(rb_eRuntimeError, "not developed yet");
   // MPI_Comm_create()
   // comm->free = true;
+  return Qnil;
 }
 static VALUE
 rb_comm_size(VALUE self)

@@ -44,17 +44,16 @@ describe "MPI" do
   end
 
   it "should send and receive NArray" do
-    tag = 1
+    tag = 10
     rank = @world.rank
-    [NArray[1,2,3], NArray[3.0,2.0,1.0]].each do |ary0|
-      ary0 = NArray[1,2,3]
-      @world.Send(ary0, 0, tag) if rank != 0
+    [NArray[1,2,3], NArray[3.0,2.0,1.0]].each_with_index do |ary0,j|
+      @world.Send(ary0, 0, tag+j) if rank != 0
       if rank == 0
         (@world.size-1).times do |i|
           ary1 = NArray.new(ary0.typecode, ary0.total)
-          status = @world.Recv(ary1, i+1, tag)
+          status = @world.Recv(ary1, i+1, tag+j)
           expect(status.source).to eql(i+1)
-          expect(status.tag).to eql(tag)
+          expect(status.tag).to eql(tag+j)
           expect(ary1).to be == ary0
         end
       end
@@ -62,7 +61,7 @@ describe "MPI" do
   end
 
   it "should send and receive without blocking" do
-    tag = 2
+    tag = 20
     rank = @world.rank
     message = "Hello from #{rank}"
     if rank != 0
@@ -146,8 +145,8 @@ describe "MPI" do
     source = rank+1
     source = 0 if source > size-1
     #source = MPI::PROC_NULL if source > size-1
-    sendtag = rank
-    recvtag = source
+    sendtag = 30 + rank
+    recvtag = 30 + source
     bufsize = 2
     sendbuf = rank.to_s*bufsize
     recvbuf = " "*bufsize
