@@ -465,6 +465,8 @@ rb_comm_gather(VALUE self, VALUE rb_sendbuf, VALUE rb_recvbuf, VALUE rb_root)
     if (recvcount < sendcount*size)
       rb_raise(rb_eArgError, "recvbuf is too small");
     recvcount = sendcount;
+  } else {
+    recvtype = sendtype; // to avoid segmentation fault in a environment
   }
   check_error(MPI_Gather(sendbuf, sendcount, sendtype, recvbuf, recvcount, recvtype, root, comm->Comm));
   return Qnil;
