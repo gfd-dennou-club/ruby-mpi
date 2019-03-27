@@ -27,6 +27,10 @@
 ---->> Please define NA_MPI_LLINT manually because sizeof(long long) != 8. <<----
 #endif
 
+#ifndef NARRAY_BIGMEM
+# define NA_LLINT -999
+#endif
+
 
 #define OBJ2C(rb_obj, len, buffer, typ, off) \
 {\
