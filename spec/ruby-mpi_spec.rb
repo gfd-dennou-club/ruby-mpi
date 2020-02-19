@@ -17,13 +17,13 @@ describe "MPI" do
   end
 
   it "should give version" do
-    expect(MPI::VERSION.class).to eq(Fixnum)
-    expect(MPI::SUBVERSION.class).to eq(Fixnum)
+    expect(MPI::VERSION.class).to eq(Integer)
+    expect(MPI::SUBVERSION.class).to eq(Integer)
   end
 
   it "should give rank and size" do
-    expect(@world.rank.class).to eql(Fixnum)
-    expect(@world.size.class).to eql(Fixnum)
+    expect(@world.rank.class).to eql(Integer)
+    expect(@world.size.class).to eql(Integer)
     expect(@world.size).to be > 0
   end
 
