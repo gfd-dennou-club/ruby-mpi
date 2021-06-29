@@ -30,14 +30,14 @@ def usage(rank)
  if rank==0
    print <<EOF
 Usage: mpirun -np numproc ruby #$0 numpoints
-       numpoints must be > 0
+       numpoints must be an integer > 0
 EOF
  end
   MPI.Finalize
   exit -1
 end
-usage(rank) if ARGV.length == 0
-
+usage(rank) if ARGV.length != 1
+usage(rank) if ( ( /^\d+$/ =~ ARGV[0] ) != 0)
 n_samples = ARGV[0].to_i
 usage(rank) unless n_samples > 0
 
@@ -46,7 +46,7 @@ if ( n_samples % size > rank  )
   my_samples = my_samples + 1
 end
 
-my_count = NArray[1]
+my_count = NArray[0]
 count = NArray[0]
 
 my_count[0] = inside_circle my_samples 
