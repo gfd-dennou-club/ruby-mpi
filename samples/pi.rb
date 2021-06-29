@@ -26,7 +26,21 @@ world = MPI::Comm::WORLD
 size = world.size
 rank = world.rank
 
+def usage(rank)
+ if rank==0
+   print <<EOF
+Usage: mpirun -np numproc ruby #$0 numpoints
+       numpoints must be > 0
+EOF
+ end
+  MPI.Finalize
+  exit -1
+end
+usage(rank) if ARGV.length == 0
+
 n_samples = ARGV[0].to_i
+usage(rank) unless n_samples > 0
+
 my_samples = n_samples.div(size) 
 if ( n_samples % size > rank  ) 
   my_samples = my_samples + 1
