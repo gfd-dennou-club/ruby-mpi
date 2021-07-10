@@ -56,23 +56,23 @@ if ( my_points % size > rank  )
   my_points = my_points + 1
 end
 
-cluster_x = NArray.float(n_clusters).fill(0)
-cluster_y = NArray.float(n_clusters).fill(0)
-my_cluster = NArray.int(my_points).fill(0)
-min_distance = NArray.float(my_points).fill(0)
-distance = NArray.float(n_clusters).fill(0)
+cluster_x = NArray.float(n_clusters)
+cluster_y = NArray.float(n_clusters)
+my_cluster = NArray.int(my_points)
+min_distance = NArray.float(my_points)
+distance = NArray.float(n_clusters)
 count = NArray.int(n_clusters).indgen(0,1)
-cluster_member_count = NArray.int(n_clusters).fill(0)
-total_cluster_x_sum = NArray.float(n_clusters).fill(0)
-total_cluster_y_sum = NArray.float(n_clusters).fill(0)
-total_cluster_member_count = NArray.int(n_clusters).fill(0)
-my_cluster_x = NArray.float(n_clusters).fill(0)
-my_cluster_y = NArray.float(n_clusters).fill(0)
-my_cluster_member_count = NArray.int(n_clusters).fill(0)
-my_energy = NArray.float(1).fill(0)
-total_energy = NArray.float(1).fill(0)
-random_x = NArray.float(n_clusters).fill(0)
-random_y = NArray.float(n_clusters).fill(0)
+cluster_member_count = NArray.int(n_clusters)
+total_cluster_x_sum = NArray.float(n_clusters)
+total_cluster_y_sum = NArray.float(n_clusters)
+total_cluster_member_count = NArray.int(n_clusters)
+my_cluster_x = NArray.float(n_clusters)
+my_cluster_y = NArray.float(n_clusters)
+my_cluster_member_count = NArray.int(n_clusters)
+my_energy = NArray.float(1)
+total_energy = NArray.float(1)
+random_x = NArray.float(n_clusters)
+random_y = NArray.float(n_clusters)
 
 my_x, my_y = generate_points my_points
 if rank == 0
@@ -81,45 +81,44 @@ end
 world.Bcast(cluster_x,0)
 world.Bcast(cluster_y,0)
 
-$iter = 0
-while $iter < 10 do
+iter = 0
+while iter < 10 do
   # Find cluster and calculate energy
-  $i = 0 
+  i = 0 
   my_energy[0] = 0
-  while $i < my_points do
-    distance = ( cluster_x - my_x[$i] )**2 + ( cluster_y - my_y[$i] )**2
+  while i < my_points do
+    distance = ( cluster_x - my_x[i] )**2 + ( cluster_y - my_y[i] )**2
     min_distance = distance.min
     my_energy[0] += min_distance
-    my_cluster[$i] = (count[ distance.eq(min_distance) ]).sum
-    $i +=1
+    my_cluster[i] = (count[ distance.eq(min_distance) ]).sum
+    i +=1
   end
   world.Allreduce(my_energy,total_energy,MPI::Op::SUM)
   if rank == 0
     p total_energy[0]
   end
   # Find new cluster centroids
-  $j = 0
-  while $j < n_clusters do
-    my_cluster_member_count[$j] = (my_cluster.eq($j)).count_true
-    my_cluster_x[$j] = (my_x[ my_cluster.eq($j) ]).sum
-    my_cluster_y[$j] = (my_y[ my_cluster.eq($j) ]).sum
-    $j +=1
+  j = 0
+  while j < n_clusters do
+    mask = my_cluster.eq(j)
+    my_cluster_member_count[j] = mask.count_true
+    if mask.any?
+      my_cluster_x[j] = (my_x[mask]).sum
+      my_cluster_y[j] = (my_y[mask]).sum
+    end
+    j +=1
   end
   world.Allreduce(my_cluster_member_count,total_cluster_member_count,MPI::Op::SUM)
   world.Allreduce(my_cluster_x,total_cluster_x_sum,MPI::Op::SUM)
   world.Allreduce(my_cluster_y,total_cluster_y_sum,MPI::Op::SUM)
   # If a cluster is empty, choose a random point to try
   no_members = total_cluster_member_count.eq(0)
-  if no_members.sum > 0
+  if no_members.any?
     if rank == 0
-      random_x, random_y = generate_points n_clusters
-      while no.members.sum > 0
-        ind = (count[ total_cluster_member_count.eq(0) ]).sum
-        total_cluster_member_count[ind]= 1
-        total_cluster_x_sum[ind] = random_x[ind]
-        total_cluster_y_sum[ind] = random_y[ind]
-        no_members = total_cluster_member_count.eq(0)
-      end
+      random_x, random_y = generate_points no_members.count_true
+      total_cluster_member_count[no_members]= 1
+      total_cluster_x_sum[no_members] = random_x
+      total_cluster_y_sum[no_members] = random_y
       cluster_x = total_cluster_x_sum / total_cluster_member_count
       cluster_y = total_cluster_y_sum / total_cluster_member_count
     end
@@ -129,7 +128,7 @@ while $iter < 10 do
     cluster_x = total_cluster_x_sum / total_cluster_member_count
     cluster_y = total_cluster_y_sum / total_cluster_member_count
   end
-$iter += 1
+iter += 1
 end
 
 MPI.Finalize
