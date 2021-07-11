@@ -52,8 +52,8 @@ usage(rank) unless n_clusters > 0
 usage(rank) unless n_points >= n_clusters
 
 my_points = n_points.div(size) 
-if ( my_points % size > rank  ) 
-  my_points = my_points + 1
+if ( n_points % size > rank  ) 
+  my_points +=  1
 end
 
 cluster_x = NArray.float(n_clusters)
@@ -82,6 +82,9 @@ world.Bcast(cluster_x,0)
 world.Bcast(cluster_y,0)
 
 iter = 0
+# Do 10 iterations for testing purposes
+# in practice would use some convergence 
+# criteria
 while iter < 10 do
   # Find cluster and calculate energy
   i = 0 
