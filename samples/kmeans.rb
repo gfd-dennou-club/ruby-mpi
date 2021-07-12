@@ -61,7 +61,6 @@ cluster_y = NArray.float(n_clusters)
 my_cluster = NArray.int(my_points)
 min_distance = NArray.float(my_points)
 distance = NArray.float(n_clusters)
-count = NArray.int(n_clusters).indgen(0,1)
 cluster_member_count = NArray.int(n_clusters)
 total_cluster_x_sum = NArray.float(n_clusters)
 total_cluster_y_sum = NArray.float(n_clusters)
@@ -93,7 +92,8 @@ while iter < 10 do
     distance = ( cluster_x - my_x[i] )**2 + ( cluster_y - my_y[i] )**2
     min_distance = distance.min
     my_energy[0] += min_distance
-    my_cluster[i] = (count[ distance.eq(min_distance) ]).sum
+    # If multiple minimum values, take the first one
+    my_cluster[i] = distance.eq(min_distance).where[0]
     i +=1
   end
   world.Allreduce(my_energy,total_energy,MPI::Op::SUM)
