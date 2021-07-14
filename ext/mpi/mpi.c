@@ -317,6 +317,37 @@ rb_m_abort(VALUE self, VALUE rcomm, VALUE rerror)
   return INT2NUM(ierror);
 }
 
+static VALUE
+rb_m_wtime(VALUE self)
+{
+  double time;
+  time = MPI_Wtime();
+  return rb_float_new(time);
+}
+
+static VALUE
+rb_m_waitall(VALUE self, VALUE rary)
+{
+  struct _Request *req;
+  MPI_Request *request;
+  MPI_Status *status;
+  VALUE rb_status;
+  long count, i;
+
+  count = RARRAY_LEN(rary);
+
+  request = ALLOCA_N(MPI_Request, count);
+  for (i=0; i<count; i++) {
+    Data_Get_Struct(rb_ary_entry(rary,i), struct _Request, req);
+    request[i] = req->Request;
+  }
+  rb_status = rb_ary_new2(count);
+  status = ALLOC_N(MPI_Status, count);
+  check_error(MPI_Waitall(count, request, status));
+  for (i=0; i<count; i++)
+    rb_ary_push(rb_status, Data_Wrap_Struct(cStatus, NULL, Status_free, &(status[i])));
+  return rb_status;
+}
 
 // MPI::Comm
 /*
@@ -470,10 +501,121 @@ rb_comm_gather(VALUE self, VALUE rb_sendbuf, VALUE rb_recvbuf, VALUE rb_root)
       rb_raise(rb_eArgError, "recvbuf is too small");
     recvcount = sendcount;
   } else {
-    recvtype = sendtype; // to avoid segmentation fault in a environment
+    recvtype = sendtype; // to avoid segmentation fault in an environment
   }
   check_error(MPI_Gather(sendbuf, sendcount, sendtype, recvbuf, recvcount, recvtype, root, comm->Comm));
   return Qnil;
+}
+static VALUE
+rb_comm_igather(VALUE self, VALUE rb_sendbuf, VALUE rb_recvbuf, VALUE rb_root)
+{
+  void *sendbuf, *recvbuf = NULL;
+  int sendcount=0, recvcount = 0;
+  MPI_Datatype sendtype, recvtype = 0;
+  int root, rank, size;
+  struct _Comm *comm;
+  struct _Request *request;
+  VALUE rb_request;
+  OBJ2C(rb_sendbuf, sendcount, sendbuf, sendtype, 0);
+  root = NUM2INT(rb_root);
+  Data_Get_Struct(self, struct _Comm, comm);
+  check_error(MPI_Comm_rank(comm->Comm, &rank));
+  check_error(MPI_Comm_size(comm->Comm, &size));
+  if (rank == root) {
+    OBJ2C(rb_recvbuf, recvcount, recvbuf, recvtype, 0);
+    if (recvcount < sendcount*size)
+      rb_raise(rb_eArgError, "recvbuf is too small");
+    recvcount = sendcount;
+  } else {
+    recvtype = sendtype; // to avoid segmentation fault in an environment
+  }
+  rb_request = Data_Make_Struct(cRequest, struct _Request, NULL, Request_free, request);
+  request->free = true;
+  check_error(MPI_Igather(sendbuf, sendcount, sendtype, recvbuf, recvcount, recvtype, root, comm->Comm, &(request->Request)));
+  return rb_request;
+}
+static VALUE
+rb_comm_gatherv(VALUE self, VALUE rb_sendbuf, VALUE rb_recvbuf, VALUE rb_recvcounts, VALUE rb_displs, VALUE rb_root)
+{
+  void *sendbuf, *recvbuf = NULL;
+  int sendcount=0, bufsize=0;
+  int *recvcounts = NULL, *displs = NULL;
+  MPI_Datatype sendtype, recvtype = 0;
+  int root, rank, size;
+  struct _Comm *comm;
+  int max, tmp;
+  int i;
+  OBJ2C(rb_sendbuf, sendcount, sendbuf, sendtype, 0);
+  root = NUM2INT(rb_root);
+  Data_Get_Struct(self, struct _Comm, comm);
+  check_error(MPI_Comm_rank(comm->Comm, &rank));
+  check_error(MPI_Comm_size(comm->Comm, &size));
+  if (rank == root) {
+    if ( RARRAY_LEN(rb_recvcounts) != size )
+      rb_raise(rb_eArgError, "length of recvcounts must be the same as the group size");
+    if ( RARRAY_LEN(rb_displs) != size )
+      rb_raise(rb_eArgError, "length of displs must be the same as the group size");
+    recvcounts = ALLOCA_N(int, size);
+    displs = ALLOCA_N(int, size);
+    max = 0;
+    for (i=0; i<size; i++) {
+      recvcounts[i] = NUM2INT(rb_ary_entry(rb_recvcounts,i));
+      displs[i] = NUM2INT(rb_ary_entry(rb_displs,i));
+      tmp = displs[i] + recvcounts[i];
+      if (tmp > max) max = tmp;
+    }
+    OBJ2C(rb_recvbuf, bufsize, recvbuf, recvtype, 0);
+    if (bufsize < max)
+      rb_raise(rb_eArgError, "recvbuf is too small");
+  } else {
+    recvtype = sendtype; // to avoid segmentation fault in an environment
+  }
+  check_error(MPI_Gatherv(sendbuf, sendcount, sendtype, recvbuf, recvcounts, displs, recvtype, root, comm->Comm));
+  return Qnil;
+}
+static VALUE
+rb_comm_igatherv(VALUE self, VALUE rb_sendbuf, VALUE rb_recvbuf, VALUE rb_recvcounts, VALUE rb_displs, VALUE rb_root)
+{
+  void *sendbuf, *recvbuf = NULL;
+  int sendcount=0, bufsize=0;
+  int *recvcounts = NULL, *displs = NULL;
+  MPI_Datatype sendtype, recvtype = 0;
+  int root, rank, size;
+  struct _Comm *comm;
+  struct _Request *request;
+  VALUE rb_request;
+  int max, tmp;
+  int i;
+
+  OBJ2C(rb_sendbuf, sendcount, sendbuf, sendtype, 0);
+  root = NUM2INT(rb_root);
+  Data_Get_Struct(self, struct _Comm, comm);
+  check_error(MPI_Comm_rank(comm->Comm, &rank));
+  check_error(MPI_Comm_size(comm->Comm, &size));
+  if (rank == root) {
+    recvcounts = ALLOCA_N(int, size);
+    displs = ALLOCA_N(int, size);
+    max = 0;
+    if ( RARRAY_LEN(rb_recvcounts) != size )
+      rb_raise(rb_eArgError, "length of recvcounts must be the same as the group size");
+    if ( RARRAY_LEN(rb_displs) != size )
+      rb_raise(rb_eArgError, "length of displs must be the same as the group size");
+    for (i=0; i<size; i++) {
+      recvcounts[i] = NUM2INT(rb_ary_entry(rb_recvcounts,i));
+      displs[i] = NUM2INT(rb_ary_entry(rb_displs,i));
+      tmp = displs[i] + recvcounts[i];
+      if (tmp > max) max = tmp;
+    }
+    OBJ2C(rb_recvbuf, bufsize, recvbuf, recvtype, 0);
+    if (bufsize < max)
+      rb_raise(rb_eArgError, "recvbuf is too small");
+  } else {
+    recvtype = sendtype; // to avoid segmentation fault in an environment
+  }
+  rb_request = Data_Make_Struct(cRequest, struct _Request, NULL, Request_free, request);
+  request->free = true;
+  check_error(MPI_Igatherv(sendbuf, sendcount, sendtype, recvbuf, recvcounts, displs, recvtype, root, comm->Comm, &(request->Request)));
+  return rb_request;
 }
 static VALUE
 rb_comm_allgather(VALUE self, VALUE rb_sendbuf, VALUE rb_recvbuf)
@@ -495,6 +637,105 @@ rb_comm_allgather(VALUE self, VALUE rb_sendbuf, VALUE rb_recvbuf)
   return Qnil;
 }
 static VALUE
+rb_comm_iallgather(VALUE self, VALUE rb_sendbuf, VALUE rb_recvbuf)
+{
+  void *sendbuf, *recvbuf;
+  int sendcount=0, recvcount=0;
+  MPI_Datatype sendtype, recvtype;
+  int rank, size;
+  struct _Comm *comm;
+  struct _Request *request;
+  VALUE rb_request;
+  OBJ2C(rb_sendbuf, sendcount, sendbuf, sendtype, 0);
+  Data_Get_Struct(self, struct _Comm, comm);
+  check_error(MPI_Comm_rank(comm->Comm, &rank));
+  check_error(MPI_Comm_size(comm->Comm, &size));
+  OBJ2C(rb_recvbuf, recvcount, recvbuf, recvtype, 0);
+  if (recvcount < sendcount*size)
+    rb_raise(rb_eArgError, "recvbuf is too small");
+  recvcount = sendcount;
+  rb_request = Data_Make_Struct(cRequest, struct _Request, NULL, Request_free, request);
+  request->free = true;
+  check_error(MPI_Iallgather(sendbuf, sendcount, sendtype, recvbuf, recvcount, recvtype, comm->Comm, &(request->Request)));
+  return rb_request;
+}
+static VALUE
+rb_comm_allgatherv(VALUE self, VALUE rb_sendbuf, VALUE rb_recvbuf, VALUE rb_recvcounts, VALUE rb_displs)
+{
+  void *sendbuf, *recvbuf;
+  int sendcount=0, bufsize=0;
+  int *recvcounts, *displs;
+  MPI_Datatype sendtype, recvtype;
+  int rank, size;
+  struct _Comm *comm;
+  int max, tmp;
+  int i;
+  Data_Get_Struct(self, struct _Comm, comm);
+  check_error(MPI_Comm_rank(comm->Comm, &rank));
+  check_error(MPI_Comm_size(comm->Comm, &size));
+  if ( RARRAY_LEN(rb_recvcounts) != size )
+    rb_raise(rb_eArgError, "length of recvcounts must be the same as the group size");
+  if ( RARRAY_LEN(rb_displs) != size )
+    rb_raise(rb_eArgError, "length of displs must be the same as the group size");
+  recvcounts = ALLOCA_N(int, size);
+  displs = ALLOCA_N(int, size);
+  max = 0;
+  for (i=0; i<size; i++) {
+    recvcounts[i] = NUM2INT(rb_ary_entry(rb_recvcounts,i));
+    displs[i] = NUM2INT(rb_ary_entry(rb_displs,i));
+    tmp = displs[i] + recvcounts[i];
+    if (tmp > max) max = tmp;
+  }
+  OBJ2C(rb_sendbuf, sendcount, sendbuf, sendtype, 0);
+  if (sendcount != recvcounts[rank])
+    rb_raise(rb_eArgError, "length of sendbuf is not the same as recvcounts[rank]");
+  OBJ2C(rb_recvbuf, bufsize, recvbuf, recvtype, 0);
+  if (bufsize < max)
+    rb_raise(rb_eArgError, "recvbuf is too small");
+  check_error(MPI_Allgatherv(sendbuf, sendcount, sendtype, recvbuf, recvcounts, displs, recvtype, comm->Comm));
+  return Qnil;
+}
+static VALUE
+rb_comm_iallgatherv(VALUE self, VALUE rb_sendbuf, VALUE rb_recvbuf, VALUE rb_recvcounts, VALUE rb_displs)
+{
+  void *sendbuf, *recvbuf;
+  int sendcount=0, bufsize=0;
+  int *recvcounts, *displs;
+  MPI_Datatype sendtype, recvtype;
+  int rank, size;
+  struct _Comm *comm;
+  struct _Request *request;
+  VALUE rb_request;
+  int max, tmp;
+  int i;
+  Data_Get_Struct(self, struct _Comm, comm);
+  check_error(MPI_Comm_rank(comm->Comm, &rank));
+  check_error(MPI_Comm_size(comm->Comm, &size));
+  if ( RARRAY_LEN(rb_recvcounts) != size )
+    rb_raise(rb_eArgError, "length of recvcounts must be the same as the group size");
+  if ( RARRAY_LEN(rb_displs) != size )
+    rb_raise(rb_eArgError, "length of displs must be the same as the group size");
+  recvcounts = ALLOCA_N(int, size);
+  displs = ALLOCA_N(int, size);
+  max = 0;
+  for (i=0; i<size; i++) {
+    recvcounts[i] = NUM2INT(rb_ary_entry(rb_recvcounts,i));
+    displs[i] = NUM2INT(rb_ary_entry(rb_displs,i));
+    tmp = displs[i] + recvcounts[i];
+    if (tmp > max) max = tmp;
+  }
+  OBJ2C(rb_sendbuf, sendcount, sendbuf, sendtype, 0);
+  if (sendcount != recvcounts[rank])
+    rb_raise(rb_eArgError, "length of sendbuf is not the same as recvcounts[rank]");
+  OBJ2C(rb_recvbuf, bufsize, recvbuf, recvtype, 0);
+  if (bufsize < max)
+    rb_raise(rb_eArgError, "recvbuf is too small");
+  rb_request = Data_Make_Struct(cRequest, struct _Request, NULL, Request_free, request);
+  request->free = true;
+  check_error(MPI_Iallgatherv(sendbuf, sendcount, sendtype, recvbuf, recvcounts, displs, recvtype, comm->Comm, &(request->Request)));
+  return rb_request;
+}
+static VALUE
 rb_comm_bcast(VALUE self, VALUE rb_buffer, VALUE rb_root)
 {
   void *buffer;
@@ -507,6 +748,24 @@ rb_comm_bcast(VALUE self, VALUE rb_buffer, VALUE rb_root)
   Data_Get_Struct(self, struct _Comm, comm);
   check_error(MPI_Bcast(buffer, count, type, root, comm->Comm));
   return Qnil;
+}
+static VALUE
+rb_comm_ibcast(VALUE self, VALUE rb_buffer, VALUE rb_root)
+{
+  void *buffer;
+  int count=0;
+  MPI_Datatype type;
+  int root;
+  struct _Comm *comm;
+  struct _Request *request;
+  VALUE rb_request;
+  OBJ2C(rb_buffer, count, buffer, type, 0);
+  root = NUM2INT(rb_root);
+  Data_Get_Struct(self, struct _Comm, comm);
+  rb_request = Data_Make_Struct(cRequest, struct _Request, NULL, Request_free, request);
+  request->free = true;
+  check_error(MPI_Ibcast(buffer, count, type, root, comm->Comm, &(request->Request)));
+  return rb_request;
 }
 static VALUE
 rb_comm_scatter(VALUE self, VALUE rb_sendbuf, VALUE rb_recvbuf, VALUE rb_root)
@@ -529,6 +788,110 @@ rb_comm_scatter(VALUE self, VALUE rb_sendbuf, VALUE rb_recvbuf, VALUE rb_root)
   }
   check_error(MPI_Scatter(sendbuf, sendcount, sendtype, recvbuf, recvcount, recvtype, root, comm->Comm));
   return Qnil;
+}
+static VALUE
+rb_comm_iscatter(VALUE self, VALUE rb_sendbuf, VALUE rb_recvbuf, VALUE rb_root)
+{
+  void *sendbuf = NULL, *recvbuf;
+  int sendcount = 0, recvcount=0;
+  MPI_Datatype sendtype = 0, recvtype;
+  int root, rank, size;
+  struct _Comm *comm;
+  struct _Request *request;
+  VALUE rb_request;
+  OBJ2C(rb_recvbuf, recvcount, recvbuf, recvtype, 0);
+  root = NUM2INT(rb_root);
+  Data_Get_Struct(self, struct _Comm, comm);
+  check_error(MPI_Comm_rank(comm->Comm, &rank));
+  check_error(MPI_Comm_size(comm->Comm, &size));
+  if (rank == root) {
+    OBJ2C(rb_sendbuf, sendcount, sendbuf, sendtype, 0);
+    if (sendcount > recvcount*size)
+      rb_raise(rb_eArgError, "recvbuf is too small");
+    sendcount = recvcount;
+  }
+  rb_request = Data_Make_Struct(cRequest, struct _Request, NULL, Request_free, request);
+  request->free = true;
+  check_error(MPI_Iscatter(sendbuf, sendcount, sendtype, recvbuf, recvcount, recvtype, root, comm->Comm, &(request->Request)));
+  return rb_request;
+}
+static VALUE
+rb_comm_scatterv(VALUE self, VALUE rb_sendbuf, VALUE rb_sendcounts, VALUE rb_displs, VALUE rb_recvbuf, VALUE rb_root)
+{
+  void *sendbuf = NULL, *recvbuf;
+  int recvcount = 0, bufsize=0;
+  int *sendcounts, *displs;
+  MPI_Datatype sendtype = 0, recvtype;
+  int root, rank, size;
+  struct _Comm *comm;
+  int max, tmp;
+  int i;
+  OBJ2C(rb_recvbuf, recvcount, recvbuf, recvtype, 0);
+  root = NUM2INT(rb_root);
+  Data_Get_Struct(self, struct _Comm, comm);
+  check_error(MPI_Comm_rank(comm->Comm, &rank));
+  check_error(MPI_Comm_size(comm->Comm, &size));
+  if (rank == root) {
+    if ( RARRAY_LEN(rb_sendcounts) != size )
+      rb_raise(rb_eArgError, "length of sendcounts must be the same as the group size");
+    if ( RARRAY_LEN(rb_displs) != size )
+      rb_raise(rb_eArgError, "length of displs must be the same as the group size");
+    sendcounts = ALLOCA_N(int, size);
+    displs = ALLOCA_N(int, size);
+    max = 0;
+    for (i=0; i<size; i++) {
+      sendcounts[i] = NUM2INT(rb_ary_entry(rb_sendcounts,i));
+      displs[i] = NUM2INT(rb_ary_entry(rb_displs,i));
+      tmp = displs[i] + sendcounts[i];
+      if (tmp > max) max = tmp;
+    }
+    OBJ2C(rb_sendbuf, bufsize, sendbuf, sendtype, 0);
+    if (bufsize < max)
+      rb_raise(rb_eArgError, "sendbuf is too small");
+  }
+  check_error(MPI_Scatterv(sendbuf, sendcounts, displs, sendtype, recvbuf, recvcount, recvtype, root, comm->Comm));
+  return Qnil;
+}
+static VALUE
+rb_comm_iscatterv(VALUE self, VALUE rb_sendbuf, VALUE rb_sendcounts, VALUE rb_displs, VALUE rb_recvbuf, VALUE rb_root)
+{
+  void *sendbuf = NULL, *recvbuf;
+  int recvcount = 0, bufsize=0;
+  int *sendcounts, *displs;
+  MPI_Datatype sendtype = 0, recvtype;
+  int root, rank, size;
+  struct _Comm *comm;
+  struct _Request *request;
+  VALUE rb_request;
+  int max, tmp;
+  int i;
+  OBJ2C(rb_recvbuf, recvcount, recvbuf, recvtype, 0);
+  root = NUM2INT(rb_root);
+  Data_Get_Struct(self, struct _Comm, comm);
+  check_error(MPI_Comm_rank(comm->Comm, &rank));
+  check_error(MPI_Comm_size(comm->Comm, &size));
+  if (rank == root) {
+    if ( RARRAY_LEN(rb_sendcounts) != size )
+      rb_raise(rb_eArgError, "length of sendcounts must be the same as the group size");
+    if ( RARRAY_LEN(rb_displs) != size )
+      rb_raise(rb_eArgError, "length of displs must be the same as the group size");
+    sendcounts = ALLOCA_N(int, size);
+    displs = ALLOCA_N(int, size);
+    max = 0;
+    for (i=0; i<size; i++) {
+      sendcounts[i] = NUM2INT(rb_ary_entry(rb_sendcounts,i));
+      displs[i] = NUM2INT(rb_ary_entry(rb_displs,i));
+      tmp = displs[i] + sendcounts[i];
+      if (tmp > max) max = tmp;
+    }
+    OBJ2C(rb_sendbuf, bufsize, sendbuf, sendtype, 0);
+    if (bufsize < max)
+      rb_raise(rb_eArgError, "sendbuf is too small");
+  }
+  rb_request = Data_Make_Struct(cRequest, struct _Request, NULL, Request_free, request);
+  request->free = true;
+  check_error(MPI_Iscatterv(sendbuf, sendcounts, displs, sendtype, recvbuf, recvcount, recvtype, root, comm->Comm, &(request->Request)));
+  return rb_request;
 }
 static VALUE
 rb_comm_sendrecv(VALUE self, VALUE rb_sendbuf, VALUE rb_dest, VALUE rb_sendtag, VALUE rb_recvbuf, VALUE rb_source, VALUE rb_recvtag)
@@ -573,6 +936,129 @@ rb_comm_alltoall(VALUE self, VALUE rb_sendbuf, VALUE rb_recvbuf)
   return Qnil;
 }
 static VALUE
+rb_comm_ialltoall(VALUE self, VALUE rb_sendbuf, VALUE rb_recvbuf)
+{
+  void *sendbuf, *recvbuf;
+  int sendcount=0, recvcount=0;
+  MPI_Datatype sendtype, recvtype;
+  int size;
+  struct _Comm *comm;
+  struct _Request *request;
+  VALUE rb_request;
+  OBJ2C(rb_sendbuf, sendcount, sendbuf, sendtype, 0);
+  Data_Get_Struct(self, struct _Comm, comm);
+  check_error(MPI_Comm_size(comm->Comm, &size));
+  OBJ2C(rb_recvbuf, recvcount, recvbuf, recvtype, 0);
+  if (recvcount < sendcount)
+    rb_raise(rb_eArgError, "recvbuf is too small");
+  recvcount = recvcount/size;
+  sendcount = sendcount/size;
+  rb_request = Data_Make_Struct(cRequest, struct _Request, NULL, Request_free, request);
+  request->free = true;
+  check_error(MPI_Ialltoall(sendbuf, sendcount, sendtype, recvbuf, recvcount, recvtype, comm->Comm, &(request->Request)));
+  return rb_request;
+}
+static VALUE
+rb_comm_alltoallv(VALUE self, VALUE rb_sendbuf, VALUE rb_sendcounts, VALUE rb_sdispls, VALUE rb_recvbuf, VALUE rb_recvcounts, VALUE rb_rdispls)
+{
+  void *sendbuf, *recvbuf;
+  int bufsize=0;
+  int *sendcounts, *sdispls;
+  int *recvcounts, *rdispls;
+  MPI_Datatype sendtype, recvtype;
+  int size;
+  struct _Comm *comm;
+  int smax, rmax, tmp;
+  int i;
+  Data_Get_Struct(self, struct _Comm, comm);
+  check_error(MPI_Comm_size(comm->Comm, &size));
+  if ( RARRAY_LEN(rb_sendcounts) != size )
+    rb_raise(rb_eArgError, "length of sendcounts must be the same as the group size");
+  if ( RARRAY_LEN(rb_sdispls) != size )
+    rb_raise(rb_eArgError, "length of sdispls must be the same as the group size");
+  if ( RARRAY_LEN(rb_recvcounts) != size )
+    rb_raise(rb_eArgError, "length of recvcounts must be the same as the group size");
+  if ( RARRAY_LEN(rb_rdispls) != size )
+    rb_raise(rb_eArgError, "length of rdispls must be the same as the group size");
+  sendcounts = ALLOCA_N(int, size);
+  sdispls = ALLOCA_N(int, size);
+  recvcounts = ALLOCA_N(int, size);
+  rdispls = ALLOCA_N(int, size);
+  smax = 0;
+  rmax = 0;
+  for (i=0; i<size; i++) {
+    sendcounts[i] = NUM2INT(rb_ary_entry(rb_sendcounts,i));
+    sdispls[i] = NUM2INT(rb_ary_entry(rb_sdispls,i));
+    recvcounts[i] = NUM2INT(rb_ary_entry(rb_recvcounts,i));
+    rdispls[i] = NUM2INT(rb_ary_entry(rb_rdispls,i));
+    tmp = sdispls[i] + sendcounts[i];
+    if(tmp > smax) smax = tmp;
+    tmp = rdispls[i] + recvcounts[i];
+    if(tmp > rmax) rmax = tmp;
+  }
+  OBJ2C(rb_sendbuf, bufsize, sendbuf, sendtype, 0);
+  if (bufsize < smax)
+    rb_raise(rb_eArgError, "sendbuf is too small");
+  bufsize = 0;
+  OBJ2C(rb_recvbuf, bufsize, recvbuf, recvtype, 0);
+  if (bufsize < rmax)
+    rb_raise(rb_eArgError, "recvbuf is too small");
+check_error(MPI_Alltoallv(sendbuf, sendcounts, sdispls, sendtype, recvbuf, recvcounts, rdispls, recvtype, comm->Comm));
+  return Qnil;
+}
+static VALUE
+rb_comm_ialltoallv(VALUE self, VALUE rb_sendbuf, VALUE rb_sendcounts, VALUE rb_sdispls, VALUE rb_recvbuf, VALUE rb_recvcounts, VALUE rb_rdispls)
+{
+  void *sendbuf, *recvbuf;
+  int bufsize=0;
+  int *sendcounts, *sdispls;
+  int *recvcounts, *rdispls;
+  MPI_Datatype sendtype, recvtype;
+  int size;
+  struct _Comm *comm;
+  struct _Request *request;
+  VALUE rb_request;
+  int smax, rmax, tmp;
+  int i;
+  Data_Get_Struct(self, struct _Comm, comm);
+  check_error(MPI_Comm_size(comm->Comm, &size));
+  if ( RARRAY_LEN(rb_sendcounts) != size )
+    rb_raise(rb_eArgError, "length of sendcounts must be the same as the group size");
+  if ( RARRAY_LEN(rb_sdispls) != size )
+    rb_raise(rb_eArgError, "length of sdispls must be the same as the group size");
+  if ( RARRAY_LEN(rb_recvcounts) != size )
+    rb_raise(rb_eArgError, "length of recvcounts must be the same as the group size");
+  if ( RARRAY_LEN(rb_rdispls) != size )
+    rb_raise(rb_eArgError, "length of rdispls must be the same as the group size");
+  sendcounts = ALLOCA_N(int, size);
+  sdispls = ALLOCA_N(int, size);
+  recvcounts = ALLOCA_N(int, size);
+  rdispls = ALLOCA_N(int, size);
+  smax = 0;
+  rmax = 0;
+  for (i=0; i<size; i++) {
+    sendcounts[i] = NUM2INT(rb_ary_entry(rb_sendcounts,i));
+    sdispls[i] = NUM2INT(rb_ary_entry(rb_sdispls,i));
+    recvcounts[i] = NUM2INT(rb_ary_entry(rb_recvcounts,i));
+    rdispls[i] = NUM2INT(rb_ary_entry(rb_rdispls,i));
+    tmp = sdispls[i] + sendcounts[i];
+    if(tmp > smax) smax = tmp;
+    tmp = rdispls[i] + recvcounts[i];
+    if(tmp > rmax) rmax = tmp;
+  }
+  OBJ2C(rb_sendbuf, bufsize, sendbuf, sendtype, 0);
+  if (bufsize < smax)
+    rb_raise(rb_eArgError, "sendbuf is too small");
+  bufsize = 0;
+  OBJ2C(rb_recvbuf, bufsize, recvbuf, recvtype, 0);
+  if (bufsize < rmax)
+    rb_raise(rb_eArgError, "recvbuf is too small");
+  rb_request = Data_Make_Struct(cRequest, struct _Request, NULL, Request_free, request);
+  request->free = true;
+  check_error(MPI_Ialltoallv(sendbuf, sendcounts, sdispls, sendtype, recvbuf, recvcounts, rdispls, recvtype, comm->Comm, &(request->Request)));
+  return rb_request;
+}
+static VALUE
 rb_comm_reduce(VALUE self, VALUE rb_sendbuf, VALUE rb_recvbuf, VALUE rb_op, VALUE rb_root)
 {
   void *sendbuf, *recvbuf = NULL;
@@ -589,13 +1075,246 @@ rb_comm_reduce(VALUE self, VALUE rb_sendbuf, VALUE rb_recvbuf, VALUE rb_op, VALU
   if (rank == root) {
     OBJ2C(rb_recvbuf, recvcount, recvbuf, recvtype, 0);
     if (recvcount != sendcount)
-      rb_raise(rb_eArgError, "sendbuf and recvbuf has the same length");
+      rb_raise(rb_eArgError, "sendbuf and recvbuf must have the same length");
     if (recvtype != sendtype)
-      rb_raise(rb_eArgError, "sendbuf and recvbuf has the same type");
+      rb_raise(rb_eArgError, "sendbuf and recvbuf must have the same type");
   }
   Data_Get_Struct(rb_op, struct _Op, op);
   check_error(MPI_Reduce(sendbuf, recvbuf, sendcount, sendtype, op->Op, root, comm->Comm));
   return Qnil;
+}
+static VALUE
+rb_comm_ireduce(VALUE self, VALUE rb_sendbuf, VALUE rb_recvbuf, VALUE rb_op, VALUE rb_root)
+{
+  void *sendbuf, *recvbuf = NULL;
+  int sendcount=0, recvcount = 0;
+  MPI_Datatype sendtype, recvtype = 0;
+  int root, rank, size;
+  struct _Comm *comm;
+  struct _Op *op;
+  struct _Request *request;
+  VALUE rb_request;
+  OBJ2C(rb_sendbuf, sendcount, sendbuf, sendtype, 0);
+  root = NUM2INT(rb_root);
+  Data_Get_Struct(self, struct _Comm, comm);
+  check_error(MPI_Comm_rank(comm->Comm, &rank));
+  check_error(MPI_Comm_size(comm->Comm, &size));
+  if (rank == root) {
+    OBJ2C(rb_recvbuf, recvcount, recvbuf, recvtype, 0);
+    if (recvcount != sendcount)
+      rb_raise(rb_eArgError, "sendbuf and recvbuf must have the same length");
+    if (recvtype != sendtype)
+      rb_raise(rb_eArgError, "sendbuf and recvbuf must have the same type");
+  }
+  Data_Get_Struct(rb_op, struct _Op, op);
+  rb_request = Data_Make_Struct(cRequest, struct _Request, NULL, Request_free, request);
+  request->free = true;
+  check_error(MPI_Ireduce(sendbuf, recvbuf, sendcount, sendtype, op->Op, root, comm->Comm, &(request->Request)));
+  return rb_request;
+}
+static VALUE
+rb_comm_reduce_scatter(VALUE self, VALUE rb_sendbuf, VALUE rb_recvbuf, VALUE rb_recvcounts, VALUE rb_op)
+{
+  void *sendbuf, *recvbuf = NULL;
+  int sendcount=0, bufsize = 0;
+  int *recvcounts;
+  MPI_Datatype sendtype, recvtype = 0;
+  int rank, size;
+  struct _Comm *comm;
+  struct _Op *op;
+  int i;
+  Data_Get_Struct(self, struct _Comm, comm);
+  check_error(MPI_Comm_rank(comm->Comm, &rank));
+  check_error(MPI_Comm_size(comm->Comm, &size));
+  if ( RARRAY_LEN(rb_recvcounts) != size )
+    rb_raise(rb_eArgError, "length of recvcounts must be the same as the group size");
+  recvcounts = ALLOCA_N(int, size);
+  sendcount = 0;
+  for (i=0; i<size; i++) {
+    recvcounts[i] = NUM2INT(rb_ary_entry(rb_recvcounts,i));
+    sendcount += recvcounts[i];
+  }
+  OBJ2C(rb_sendbuf, bufsize, sendbuf, sendtype, 0);
+  if (bufsize != sendcount)
+    rb_raise(rb_eArgError, "length of sendbuf and total of recvcounts must be the same");
+  bufsize = 0;
+  OBJ2C(rb_recvbuf, bufsize, recvbuf, recvtype, 0);
+  if (bufsize != recvcounts[rank])
+    rb_raise(rb_eArgError, "length of recvbuf and recvcounts[myrank] must by the same");
+  if (recvtype != sendtype)
+    rb_raise(rb_eArgError, "sendbuf and recvbuf must have the same type");
+  Data_Get_Struct(rb_op, struct _Op, op);
+  check_error(MPI_Reduce_scatter(sendbuf, recvbuf, recvcounts, sendtype, op->Op, comm->Comm));
+  return Qnil;
+}
+static VALUE
+rb_comm_ireduce_scatter(VALUE self, VALUE rb_sendbuf, VALUE rb_recvbuf, VALUE rb_recvcounts, VALUE rb_op)
+{
+  void *sendbuf, *recvbuf = NULL;
+  int sendcount=0, bufsize = 0;
+  int *recvcounts;
+  MPI_Datatype sendtype, recvtype = 0;
+  int rank, size;
+  struct _Comm *comm;
+  struct _Op *op;
+  struct _Request *request;
+  VALUE rb_request;
+  int i;
+  Data_Get_Struct(self, struct _Comm, comm);
+  check_error(MPI_Comm_rank(comm->Comm, &rank));
+  check_error(MPI_Comm_size(comm->Comm, &size));
+  if ( RARRAY_LEN(rb_recvcounts) != size )
+    rb_raise(rb_eArgError, "length of recvcounts must be the same as the group size");
+  recvcounts = ALLOCA_N(int, size);
+  sendcount = 0;
+  for (i=0; i<size; i++) {
+    recvcounts[i] = NUM2INT(rb_ary_entry(rb_recvcounts,i));
+    sendcount += recvcounts[i];
+  }
+  OBJ2C(rb_sendbuf, bufsize, sendbuf, sendtype, 0);
+  if (bufsize != sendcount)
+    rb_raise(rb_eArgError, "length of sendbuf and total of recvcounts must be the same");
+  bufsize = 0;
+  OBJ2C(rb_recvbuf, bufsize, recvbuf, recvtype, 0);
+  if (bufsize != recvcounts[rank])
+    rb_raise(rb_eArgError, "length of recvbuf and recvcounts[myrank] must by the same");
+  if (recvtype != sendtype)
+    rb_raise(rb_eArgError, "sendbuf and recvbuf must have the same type");
+  Data_Get_Struct(rb_op, struct _Op, op);
+  rb_request = Data_Make_Struct(cRequest, struct _Request, NULL, Request_free, request);
+  request->free = true;
+  check_error(MPI_Ireduce_scatter(sendbuf, recvbuf, recvcounts, sendtype, op->Op, comm->Comm, &(request->Request)));
+  return rb_request;
+}
+static VALUE
+rb_comm_reduce_scatter_block(VALUE self, VALUE rb_sendbuf, VALUE rb_recvbuf, VALUE rb_op)
+{
+  void *sendbuf, *recvbuf = NULL;
+  int sendcount=0, recvcount = 0;
+  MPI_Datatype sendtype, recvtype = 0;
+  int size;
+  struct _Comm *comm;
+  struct _Op *op;
+  Data_Get_Struct(self, struct _Comm, comm);
+  check_error(MPI_Comm_size(comm->Comm, &size));
+  OBJ2C(rb_sendbuf, sendcount, sendbuf, sendtype, 0);
+  OBJ2C(rb_recvbuf, recvcount, recvbuf, recvtype, 0);
+  if (sendcount != recvcount*size)
+    rb_raise(rb_eArgError, "length of sendbuf must be length of recvbuf times rank size");
+  if (recvtype != sendtype)
+    rb_raise(rb_eArgError, "sendbuf and recvbuf must have the same type");
+  Data_Get_Struct(rb_op, struct _Op, op);
+  check_error(MPI_Reduce_scatter_block(sendbuf, recvbuf, recvcount, sendtype, op->Op, comm->Comm));
+  return Qnil;
+}
+static VALUE
+rb_comm_ireduce_scatter_block(VALUE self, VALUE rb_sendbuf, VALUE rb_recvbuf, VALUE rb_op)
+{
+  void *sendbuf, *recvbuf = NULL;
+  int sendcount=0, recvcount = 0;
+  MPI_Datatype sendtype, recvtype = 0;
+  int size;
+  struct _Comm *comm;
+  struct _Op *op;
+  struct _Request *request;
+  VALUE rb_request;
+  Data_Get_Struct(self, struct _Comm, comm);
+  check_error(MPI_Comm_size(comm->Comm, &size));
+  OBJ2C(rb_sendbuf, sendcount, sendbuf, sendtype, 0);
+  OBJ2C(rb_recvbuf, recvcount, recvbuf, recvtype, 0);
+  if (sendcount != recvcount*size)
+    rb_raise(rb_eArgError, "length of sendbuf must be length of recvbuf times rank size");
+  if (recvtype != sendtype)
+    rb_raise(rb_eArgError, "sendbuf and recvbuf must have the same type");
+  Data_Get_Struct(rb_op, struct _Op, op);
+  rb_request = Data_Make_Struct(cRequest, struct _Request, NULL, Request_free, request);
+  request->free = true;
+  check_error(MPI_Ireduce_scatter_block(sendbuf, recvbuf, recvcount, sendtype, op->Op, comm->Comm, &(request->Request)));
+  return rb_request;
+}
+static VALUE
+rb_comm_scan(VALUE self, VALUE rb_sendbuf, VALUE rb_recvbuf, VALUE rb_op)
+{
+  void *sendbuf, *recvbuf = NULL;
+  int sendcount=0, recvcount = 0;
+  MPI_Datatype sendtype, recvtype = 0;
+  struct _Comm *comm;
+  struct _Op *op;
+  OBJ2C(rb_sendbuf, sendcount, sendbuf, sendtype, 0);
+  OBJ2C(rb_recvbuf, recvcount, recvbuf, recvtype, 0);
+  if (sendcount != recvcount)
+    rb_raise(rb_eArgError, "sendbuf and recvbuf must have the same length");
+  if (recvtype != sendtype)
+    rb_raise(rb_eArgError, "sendbuf and recvbuf must have the same type");
+  Data_Get_Struct(self, struct _Comm, comm);
+  Data_Get_Struct(rb_op, struct _Op, op);
+  check_error(MPI_Scan(sendbuf, recvbuf, recvcount, sendtype, op->Op, comm->Comm));
+  return Qnil;
+}
+static VALUE
+rb_comm_iscan(VALUE self, VALUE rb_sendbuf, VALUE rb_recvbuf, VALUE rb_op)
+{
+  void *sendbuf, *recvbuf = NULL;
+  int sendcount=0, recvcount = 0;
+  MPI_Datatype sendtype, recvtype = 0;
+  struct _Comm *comm;
+  struct _Op *op;
+  struct _Request *request;
+  VALUE rb_request;
+  OBJ2C(rb_sendbuf, sendcount, sendbuf, sendtype, 0);
+  OBJ2C(rb_recvbuf, recvcount, recvbuf, recvtype, 0);
+  if (sendcount != recvcount)
+    rb_raise(rb_eArgError, "sendbuf and recvbuf must have the same length");
+  if (recvtype != sendtype)
+    rb_raise(rb_eArgError, "sendbuf and recvbuf must have the same type");
+  Data_Get_Struct(self, struct _Comm, comm);
+  Data_Get_Struct(rb_op, struct _Op, op);
+  rb_request = Data_Make_Struct(cRequest, struct _Request, NULL, Request_free, request);
+  request->free = true;
+  check_error(MPI_Iscan(sendbuf, recvbuf, recvcount, sendtype, op->Op, comm->Comm, &(request->Request)));
+  return rb_request;
+}
+static VALUE
+rb_comm_exscan(VALUE self, VALUE rb_sendbuf, VALUE rb_recvbuf, VALUE rb_op)
+{
+  void *sendbuf, *recvbuf = NULL;
+  int sendcount=0, recvcount = 0;
+  MPI_Datatype sendtype, recvtype = 0;
+  struct _Comm *comm;
+  struct _Op *op;
+  OBJ2C(rb_sendbuf, sendcount, sendbuf, sendtype, 0);
+  OBJ2C(rb_recvbuf, recvcount, recvbuf, recvtype, 0);
+  if (sendcount != recvcount)
+    rb_raise(rb_eArgError, "sendbuf and recvbuf must have the same length");
+  if (recvtype != sendtype)
+    rb_raise(rb_eArgError, "sendbuf and recvbuf must have the same type");
+  Data_Get_Struct(self, struct _Comm, comm);
+  Data_Get_Struct(rb_op, struct _Op, op);
+  check_error(MPI_Exscan(sendbuf, recvbuf, recvcount, sendtype, op->Op, comm->Comm));
+  return Qnil;
+}
+static VALUE
+rb_comm_iexscan(VALUE self, VALUE rb_sendbuf, VALUE rb_recvbuf, VALUE rb_op)
+{
+  void *sendbuf, *recvbuf = NULL;
+  int sendcount=0, recvcount = 0;
+  MPI_Datatype sendtype, recvtype = 0;
+  struct _Comm *comm;
+  struct _Op *op;
+  struct _Request *request;
+  VALUE rb_request;
+  OBJ2C(rb_sendbuf, sendcount, sendbuf, sendtype, 0);
+  OBJ2C(rb_recvbuf, recvcount, recvbuf, recvtype, 0);
+  if (sendcount != recvcount)
+    rb_raise(rb_eArgError, "sendbuf and recvbuf must have the same length");
+  if (recvtype != sendtype)
+    rb_raise(rb_eArgError, "sendbuf and recvbuf must have the same type");
+  Data_Get_Struct(self, struct _Comm, comm);
+  Data_Get_Struct(rb_op, struct _Op, op);
+  rb_request = Data_Make_Struct(cRequest, struct _Request, NULL, Request_free, request);
+  request->free = true;
+  check_error(MPI_Iexscan(sendbuf, recvbuf, recvcount, sendtype, op->Op, comm->Comm, &(request->Request)));
+  return rb_request;
 }
 static VALUE
 rb_comm_allreduce(VALUE self, VALUE rb_sendbuf, VALUE rb_recvbuf, VALUE rb_op)
@@ -612,12 +1331,38 @@ rb_comm_allreduce(VALUE self, VALUE rb_sendbuf, VALUE rb_recvbuf, VALUE rb_op)
   check_error(MPI_Comm_size(comm->Comm, &size));
   OBJ2C(rb_recvbuf, recvcount, recvbuf, recvtype, 0);
   if (recvcount != sendcount)
-    rb_raise(rb_eArgError, "sendbuf and recvbuf has the same length");
+    rb_raise(rb_eArgError, "sendbuf and recvbuf must have the same length");
   if (recvtype != sendtype)
-    rb_raise(rb_eArgError, "sendbuf and recvbuf has the same type");
+    rb_raise(rb_eArgError, "sendbuf and recvbuf must have the same type");
   Data_Get_Struct(rb_op, struct _Op, op);
   check_error(MPI_Allreduce(sendbuf, recvbuf, recvcount, recvtype, op->Op, comm->Comm));
   return Qnil;
+}
+static VALUE
+rb_comm_iallreduce(VALUE self, VALUE rb_sendbuf, VALUE rb_recvbuf, VALUE rb_op)
+{
+  void *sendbuf, *recvbuf;
+  int sendcount=0, recvcount=0;
+  MPI_Datatype sendtype, recvtype;
+  int rank, size;
+  struct _Comm *comm;
+  struct _Op *op;
+  struct _Request *request;
+  VALUE rb_request;
+  OBJ2C(rb_sendbuf, sendcount, sendbuf, sendtype, 0);
+  Data_Get_Struct(self, struct _Comm, comm);
+  check_error(MPI_Comm_rank(comm->Comm, &rank));
+  check_error(MPI_Comm_size(comm->Comm, &size));
+  OBJ2C(rb_recvbuf, recvcount, recvbuf, recvtype, 0);
+  if (recvcount != sendcount)
+    rb_raise(rb_eArgError, "sendbuf and recvbuf must have the same length");
+  if (recvtype != sendtype)
+    rb_raise(rb_eArgError, "sendbuf and recvbuf must have the same type");
+  Data_Get_Struct(rb_op, struct _Op, op);
+  rb_request = Data_Make_Struct(cRequest, struct _Request, NULL, Request_free, request);
+  request->free = true;
+  check_error(MPI_Iallreduce(sendbuf, recvbuf, recvcount, recvtype, op->Op, comm->Comm, &(request->Request)));
+  return rb_request;
 }
 static VALUE
 rb_comm_get_Errhandler(VALUE self)
@@ -649,7 +1394,19 @@ rb_comm_barrier(VALUE self)
   struct _Comm *comm;
   Data_Get_Struct(self, struct _Comm, comm);
   check_error(MPI_Barrier(comm->Comm));
-  return self;
+  return Qnil;
+}
+static VALUE
+rb_comm_ibarrier(VALUE self)
+{
+  struct _Comm *comm;
+  struct _Request *request;
+  VALUE rb_request;
+  Data_Get_Struct(self, struct _Comm, comm);
+  rb_request = Data_Make_Struct(cRequest, struct _Request, NULL, Request_free, request);
+  request->free = true;
+  check_error(MPI_Ibarrier(comm->Comm, &(request->Request)));
+  return rb_request;
 }
 
 // MPI::Request
@@ -706,6 +1463,8 @@ void Init_mpi()
   rb_define_module_function(mMPI, "Init", rb_m_init, -1);
   rb_define_module_function(mMPI, "Finalize", rb_m_finalize, 0);
   rb_define_module_function(mMPI, "Abort", rb_m_abort, 2);
+  rb_define_module_function(mMPI, "Wtime", rb_m_wtime, 0);
+  rb_define_module_function(mMPI, "Waitall", rb_m_waitall, 1);
   rb_define_const(mMPI, "VERSION", INT2NUM(MPI_VERSION));
   rb_define_const(mMPI, "SUBVERSION", INT2NUM(MPI_SUBVERSION));
   rb_define_const(mMPI, "SUCCESS", INT2NUM(MPI_SUCCESS));
@@ -716,22 +1475,50 @@ void Init_mpi()
 //  rb_define_alloc_func(cComm, rb_comm_alloc);
   rb_define_private_method(cComm, "initialize", rb_comm_initialize, 0);
   rb_define_method(cComm, "rank", rb_comm_rank, 0);
+  rb_define_method(cComm, "Rank", rb_comm_rank, 0);
   rb_define_method(cComm, "size", rb_comm_size, 0);
+  rb_define_method(cComm, "Size", rb_comm_size, 0);
   rb_define_method(cComm, "Send", rb_comm_send, 3);
   rb_define_method(cComm, "Isend", rb_comm_isend, 3);
   rb_define_method(cComm, "Recv", rb_comm_recv, -1);
   rb_define_method(cComm, "Irecv", rb_comm_irecv, -1);
   rb_define_method(cComm, "Gather", rb_comm_gather, 3);
+  rb_define_method(cComm, "Igather", rb_comm_igather, 3);
+  rb_define_method(cComm, "Gatherv", rb_comm_gatherv, 5);
+  rb_define_method(cComm, "Igatherv", rb_comm_igatherv, 5);
   rb_define_method(cComm, "Allgather", rb_comm_allgather, 2);
+  rb_define_method(cComm, "Iallgather", rb_comm_iallgather, 2);
+  rb_define_method(cComm, "Allgatherv", rb_comm_allgatherv, 4);
+  rb_define_method(cComm, "Iallgatherv", rb_comm_iallgatherv, 4);
   rb_define_method(cComm, "Bcast", rb_comm_bcast, 2);
+  rb_define_method(cComm, "Ibcast", rb_comm_ibcast, 2);
   rb_define_method(cComm, "Scatter", rb_comm_scatter, 3);
+  rb_define_method(cComm, "Iscatter", rb_comm_iscatter, 3);
+  rb_define_method(cComm, "Scatterv", rb_comm_scatterv, 5);
+  rb_define_method(cComm, "Iscatterv", rb_comm_iscatterv, 5);
   rb_define_method(cComm, "Sendrecv", rb_comm_sendrecv, 6);
   rb_define_method(cComm, "Alltoall", rb_comm_alltoall, 2);
+  rb_define_method(cComm, "Ialltoall", rb_comm_ialltoall, 2);
+  rb_define_method(cComm, "Alltoallv", rb_comm_alltoallv, 6);
+  rb_define_method(cComm, "Ialltoallv", rb_comm_ialltoallv, 6);
+//  rb_define_method(cComm, "Alltoallw", rb_comm_alltoallw, 2);
+//  rb_define_method(cComm, "Ialltoallw", rb_comm_ialltoallw, 2);
   rb_define_method(cComm, "Reduce", rb_comm_reduce, 4);
+  rb_define_method(cComm, "Ireduce", rb_comm_ireduce, 4);
+  rb_define_method(cComm, "Reduce_scatter", rb_comm_reduce_scatter, 4);
+  rb_define_method(cComm, "Ireduce_scatter", rb_comm_ireduce_scatter, 4);
+  rb_define_method(cComm, "Reduce_scatter_block", rb_comm_reduce_scatter_block, 3);
+  rb_define_method(cComm, "Ireduce_scatter_block", rb_comm_ireduce_scatter_block, 3);
+  rb_define_method(cComm, "Scan", rb_comm_scan, 3);
+  rb_define_method(cComm, "Iscan", rb_comm_iscan, 3);
+  rb_define_method(cComm, "Exscan", rb_comm_exscan, 3);
+  rb_define_method(cComm, "Iexscan", rb_comm_iexscan, 3);
   rb_define_method(cComm, "Allreduce", rb_comm_allreduce, 3);
+  rb_define_method(cComm, "Iallreduce", rb_comm_iallreduce, 3);
+  rb_define_method(cComm, "Barrier", rb_comm_barrier, 0);
+  rb_define_method(cComm, "Ibarrier", rb_comm_ibarrier, 0);
   rb_define_method(cComm, "Errhandler", rb_comm_get_Errhandler, 0);
   rb_define_method(cComm, "Errhandler=", rb_comm_set_Errhandler, 1);
-  rb_define_method(cComm, "Barrier", rb_comm_barrier, 0);
 
   // MPI::Request
   cRequest = rb_define_class_under(mMPI, "Request", rb_cObject);
