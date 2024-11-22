@@ -1,4 +1,4 @@
-= Ruby-MPI {<img src="https://travis-ci.org/seiya/ruby-mpi.svg?branch=master" alt="Build Status" />}[https://travis-ci.org/seiya/ruby-mpi]
+= Ruby-MPI
 
 Ruby-MPI is a ruby binding of Message Passing Interface (MPI), which is an API specification that allows processes to communicate with one another by sending and receiving messages.
 

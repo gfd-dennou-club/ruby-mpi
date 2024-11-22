@@ -14,7 +14,7 @@ require 'jeweler'
 Jeweler::Tasks.new do |gem|
   # gem is a Gem::Specification... see http://docs.rubygems.org/read/chapter/20 for more options
   gem.name = "ruby-mpi"
-  gem.homepage = "http://github.com/seiya/ruby-mpi"
+  gem.homepage = "http://github.com/gfd-dennou-club/ruby-mpi"
   gem.license = "MIT"
   gem.summary = "A ruby binding of MPI"
   gem.description = "A ruby binding of Message Passing Interface (MPI), which is an API specification that allows processes to communicate with one another by sending and receiving messages."
