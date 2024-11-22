@@ -704,7 +704,7 @@ void Init_mpi()
   // MPI
   mMPI = rb_define_module("MPI");
   rb_define_module_function(mMPI, "Init", rb_m_init, -1);
-  rb_define_module_function(mMPI, "Finalize", rb_m_finalize, -1);
+  rb_define_module_function(mMPI, "Finalize", rb_m_finalize, 0);
   rb_define_module_function(mMPI, "Abort", rb_m_abort, 2);
   rb_define_const(mMPI, "VERSION", INT2NUM(MPI_VERSION));
   rb_define_const(mMPI, "SUBVERSION", INT2NUM(MPI_SUBVERSION));
