@@ -69,11 +69,11 @@
       buffer = (void*)((char*)buffer + off*8);\
       break;\
     case NA_SCOMPLEX:\
-      typ = MPI_2COMPLEX;\
+      typ = MPI_COMPLEX;\
       buffer = (void*)((char*)buffer + off*8);\
       break;\
     case NA_DCOMPLEX:\
-      typ = MPI_2DOUBLE_COMPLEX;\
+      typ = MPI_DOUBLE_COMPLEX;\
       buffer = (void*)((char*)buffer + off*16);\
       break;\
     default:\
